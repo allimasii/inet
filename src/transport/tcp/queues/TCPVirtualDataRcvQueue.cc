@@ -227,7 +227,7 @@ uint32 TCPVirtualDataRcvQueue::getRE(uint32 toSeqNum)
         {
             tcpEV << "Enqueued region: [" << i->begin << ".." << i->end << ")\n";
             if (seqLess(toSeqNum, i->end))
-                {return i->end;}
+                return i->end;
             return toSeqNum;
         }
         i++;

@@ -142,9 +142,9 @@ void TCPReno::receivedDataAck(uint32 firstSeqAcked)
     }
 
     if (state->recovery_after_rto)
-        {conn->retransmitDataAfterRto(state->snd_cwnd);}
+        conn->retransmitDataAfterRto(state->snd_cwnd);
     else
-        {sendData();}
+        sendData();
 }
 
 void TCPReno::receivedDuplicateAck()
@@ -193,6 +193,6 @@ void TCPReno::receivedDuplicateAck()
 
         // sendData() changes snd_nxt (to snd_max), therefore is should not be called if recovery_after_rto is set
         if (!state->recovery_after_rto)
-            {sendData();}
+            sendData();
     }
 }

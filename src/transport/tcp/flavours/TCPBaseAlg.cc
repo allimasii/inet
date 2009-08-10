@@ -243,16 +243,16 @@ void TCPBaseAlg::processPersistTimer(TCPEventCode& event)
     // as presented in [Stevens, W.R.: TCP/IP Illustrated, Volume 1, chapter 22.2]
     // (5, 5, 6, 12, 24, 48, 60, 60, 60...)
     if (state->persist_factor == 0)
-        {state->persist_factor++;}
+        state->persist_factor++;
     else if (state->persist_factor < 64)
-        {state->persist_factor = state->persist_factor*2;}
+        state->persist_factor = state->persist_factor*2;
     state->persist_timeout = state->persist_factor * 1.5; // 1.5 is a factor for typical LAN connection [Stevens, W.R.: TCP/IP Ill. Vol. 1, chapter 22.2]
 
     // persist timer is bounded to 5-60 seconds
     if (state->persist_timeout < MIN_PERSIST_TIMEOUT)
-        {state->rexmit_timeout = MIN_PERSIST_TIMEOUT;}
+        state->rexmit_timeout = MIN_PERSIST_TIMEOUT;
     if (state->persist_timeout > MAX_PERSIST_TIMEOUT)
-        {state->rexmit_timeout = MAX_PERSIST_TIMEOUT;}
+        state->rexmit_timeout = MAX_PERSIST_TIMEOUT;
     conn->scheduleTimeout(persistTimer, state->persist_timeout);
 
     // sending persist probe
@@ -375,7 +375,7 @@ void TCPBaseAlg::receiveSeqChanged()
             conn->sendAck();
             tcpEV << "rcv_nxt changed to " << state->rcv_nxt << ", scheduling ACK\n";
             if (delayedAckTimer->isScheduled()) // cancel delayed ACK timer
-                {cancelEvent(delayedAckTimer);}
+                cancelEvent(delayedAckTimer);
         }
 
         // schedule delayed ACK timer if not already running
@@ -413,9 +413,9 @@ void TCPBaseAlg::receivedDataAck(uint32 firstSeqAcked)
             cancelEvent(rexmitTimer);
         }
         else
-            {tcpEV << "There were no outstanding segments, nothing new in this ACK.\n";}
+            tcpEV << "There were no outstanding segments, nothing new in this ACK.\n";
         if (state->recovery_after_rto)
-            {state->recovery_after_rto = false;} // TODO - check if this is needed!
+            state->recovery_after_rto = false; // TODO - check if this is needed!
     }
     else
     {
@@ -446,7 +446,7 @@ void TCPBaseAlg::receivedDataAck(uint32 firstSeqAcked)
                 state->persist_factor = 0;
             }
             else
-                {tcpEV << "Received zero-sized window and REXMIT timer is running therefore PERSIST timer is not started.\n";}
+                tcpEV << "Received zero-sized window and REXMIT timer is running therefore PERSIST timer is not started.\n";
         }
         else
         {
@@ -456,7 +456,7 @@ void TCPBaseAlg::receivedDataAck(uint32 firstSeqAcked)
                 conn->scheduleTimeout(persistTimer, state->persist_timeout);
             }
             else
-                {tcpEV << "Received zero-sized window and PERSIST timer is already running.\n";}
+                tcpEV << "Received zero-sized window and PERSIST timer is already running.\n";
         }
     }
     else // received non zero-sized window?
@@ -508,7 +508,7 @@ void TCPBaseAlg::ackSent()
     state->ack_now = false; // reset flag
     // if delayed ACK timer is running, cancel it
     if (delayedAckTimer->isScheduled())
-        {cancelEvent(delayedAckTimer);}
+        cancelEvent(delayedAckTimer);
 }
 
 void TCPBaseAlg::dataSent(uint32 fromseq)

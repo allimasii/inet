@@ -381,7 +381,7 @@ void TCPConnection::sendSyn()
     updateRcvWnd();
     tcpseg->setWindow(state->rcv_wnd);
     if (rcvWndVector)
-        {rcvWndVector->record(state->rcv_wnd);}
+        rcvWndVector->record(state->rcv_wnd);
 
     state->snd_max = state->snd_nxt = state->iss+1;
 
@@ -403,7 +403,7 @@ void TCPConnection::sendSynAck()
     updateRcvWnd();
     tcpseg->setWindow(state->rcv_wnd);
     if (rcvWndVector)
-        {rcvWndVector->record(state->rcv_wnd);}
+        rcvWndVector->record(state->rcv_wnd);
 
     state->snd_max = state->snd_nxt = state->iss+1;
 
@@ -459,7 +459,7 @@ void TCPConnection::sendAck()
     updateRcvWnd();
     tcpseg->setWindow(state->rcv_wnd);
     if (rcvWndVector)
-        {rcvWndVector->record(state->rcv_wnd);}
+        rcvWndVector->record(state->rcv_wnd);
 
     // write header options
     writeHeaderOptions(tcpseg);
@@ -484,7 +484,7 @@ void TCPConnection::sendFin()
     updateRcvWnd();
     tcpseg->setWindow(state->rcv_wnd);
     if (rcvWndVector)
-        {rcvWndVector->record(state->rcv_wnd);}
+        rcvWndVector->record(state->rcv_wnd);
 
     // send it
     sendToIP(tcpseg);
@@ -504,7 +504,7 @@ void TCPConnection::sendSegment(uint32 bytes)
         state->highest_sack = rexmitQueue->getHighestSackedSeqNum();
         state->snd_gaps = rexmitQueue->getNumSndGaps(state->highest_sack);
         if (sndGapsVector)
-            {sndGapsVector->record(state->snd_gaps);}
+            sndGapsVector->record(state->snd_gaps);
 
         // is sender able to see snd_gaps (snd_gaps>0)?
         if (state->snd_gaps > 0  && seqLess(state->snd_nxt, state->snd_max))
@@ -517,11 +517,11 @@ void TCPConnection::sendSegment(uint32 bytes)
 
             // if forward is 0, reset snd_nxt to old_snd_nxt
             if (forward == 0)
-                {state->snd_nxt = old_snd_nxt;}
+                state->snd_nxt = old_snd_nxt;
 
             // avoid to resend a segment until it is not clear it has been lost (seqNum <= highestSackedSegNum)
             else if (seqGE(state->snd_nxt, state->highest_sack) && !state->recovery_after_rto)
-                {state->snd_nxt = old_snd_nxt;}
+                state->snd_nxt = old_snd_nxt;
         }
     }
 
@@ -530,14 +530,14 @@ void TCPConnection::sendSegment(uint32 bytes)
 
     // if sack_enabled copy region of tcpseg to rexmitQueue
     if (state->sack_enabled)
-        {rexmitQueue->enqueueSentData(state->snd_nxt, state->snd_nxt+bytes);}
+        rexmitQueue->enqueueSentData(state->snd_nxt, state->snd_nxt+bytes);
 
     tcpseg->setAckNo(state->rcv_nxt);
     tcpseg->setAckBit(true);
     updateRcvWnd();
     tcpseg->setWindow(state->rcv_wnd);
     if (rcvWndVector)
-        {rcvWndVector->record(state->rcv_wnd);}
+        rcvWndVector->record(state->rcv_wnd);
     // TBD when to set PSH bit?
     // TBD set URG bit if needed
     ASSERT(bytes==tcpseg->getPayloadLength());
@@ -558,7 +558,7 @@ bool TCPConnection::sendData(bool fullSegmentsOnly, uint32 congestionWindow) // 
 {
     uint32 old_rexmitted_gaps = 0;
     if (state->sack_enabled)
-        {old_rexmitted_gaps = rexmitQueue->getNumRexmittedRegions();}
+        old_rexmitted_gaps = rexmitQueue->getNumRexmittedRegions();
 
     // we'll start sending from snd_max
     state->snd_nxt = state->snd_max;
@@ -636,7 +636,7 @@ bool TCPConnection::sendData(bool fullSegmentsOnly, uint32 congestionWindow) // 
     // notify (once is enough)
     tcpAlgorithm->ackSent();
     if (old_rexmitted_gaps == state->rexmitted_gaps) // don't measure RTT for retransmitted packets
-        {tcpAlgorithm->dataSent(old_snd_nxt);}
+        tcpAlgorithm->dataSent(old_snd_nxt);
 
     return true;
 }
@@ -719,7 +719,7 @@ void TCPConnection::retransmitDataAfterRto(uint32 congestionWindow)
     while (bytesToSend>0 && sendWindow>0)
     {
         if (state->nagle_enabled && (bytesToSend < state->snd_mss || sendWindow < state->snd_mss))
-            {break;}
+            break;
 
         ulong bytes = std::min(bytesToSend, (ulong) state->snd_mss);
         bytes = std::min(bytes, sendQueue->getBytesAvailable(state->snd_nxt));
@@ -801,15 +801,15 @@ void TCPConnection::readHeaderOptions(TCPSegment *tcpseg)
                             // The value of snd_mss (SMSS) is set to the minimum of snd_mss (local parameter) and
                             // the value specified in the MSS option received during connection startup.
                             state->snd_mss = std::min(state->snd_mss, (uint32) option.getValues(0));
-                            if(state->snd_mss==0)
-                                {state->snd_mss = 536;}
+                            if (state->snd_mss==0)
+                                state->snd_mss = 536;
                             tcpEV << "TCP Header Option MSS received, SMSS is set to: " << state->snd_mss << "\n";
                         }
                         else
-                            {tcpEV << "ERROR: TCP Header Option MSS received, but in unexpected state\n";}
+                            tcpEV << "ERROR: TCP Header Option MSS received, but in unexpected state\n";
                     }
                     else
-                        {tcpEV << "ERROR: TCP Header Option MSS received, but no SMSS value present\n";}
+                        tcpEV << "ERROR: TCP Header Option MSS received, but no SMSS value present\n";
                 }
                 break;
             }
@@ -825,7 +825,7 @@ void TCPConnection::readHeaderOptions(TCPSegment *tcpseg)
                         tcpEV << "TCP Header Option SACK_PERMITTED received, SACK is set to: " << state->sack_enabled << "\n";
                     }
                     else
-                        {tcpEV << "ERROR: TCP Header Option SACK_PERMITTED received, but in unexpected state\n";}
+                        tcpEV << "ERROR: TCP Header Option SACK_PERMITTED received, but in unexpected state\n";
                 }
                 break;
             }
@@ -903,27 +903,27 @@ void TCPConnection::readHeaderOptions(TCPSegment *tcpseg)
                                     if (j+1==counter) // the last part does not need to be smss_sized (nagle off)
                                     {
                                         if (seqGE(mss_sized_sack,state->snd_una))
-                                            {rexmitQueue->setSackedBit(mss_sized_sack,mss_sized_sack+tmp_sack_range);}
+                                            rexmitQueue->setSackedBit(mss_sized_sack,mss_sized_sack+tmp_sack_range);
                                         else
-                                            {tcpEV << "Received old sack. Sacked segment number is below snd_una\n";}
+                                            tcpEV << "Received old sack. Sacked segment number is below snd_una\n";
                                     }
                                     else
                                     {
                                         if (seqGE(mss_sized_sack,state->snd_una))
-                                            {rexmitQueue->setSackedBit(mss_sized_sack,mss_sized_sack+state->snd_mss);}
+                                            rexmitQueue->setSackedBit(mss_sized_sack,mss_sized_sack+state->snd_mss);
                                         else
-                                            {tcpEV << "Received old sack. Sacked segment number is below snd_una\n";}
+                                            tcpEV << "Received old sack. Sacked segment number is below snd_una\n";
                                     }
                                     mss_sized_sack = mss_sized_sack + state->snd_mss;
                                 }
                             }
                             state->rcv_sacks = state->rcv_sacks + n; // total counter, no current number
                             if (rcvSacksVector)
-                                {rcvSacksVector->record(state->rcv_sacks);}
+                                rcvSacksVector->record(state->rcv_sacks);
                         }
                     }
                     else
-                        {tcpEV << "ERROR: " << (length/2) << ". SACK(s) received, but sack_enabled is set to " << state->sack_enabled << "\n";}
+                        tcpEV << "ERROR: " << (length/2) << ". SACK(s) received, but sack_enabled is set to " << state->sack_enabled << "\n";
                 }
                 break;
             }
@@ -939,7 +939,7 @@ void TCPConnection::readHeaderOptions(TCPSegment *tcpseg)
         }
 
         if (!lengthMatched)
-            {tcpEV << "ERROR: Received option of kind " << kind << " with incorrect length " << length << "\n";}
+            tcpEV << "ERROR: Received option of kind " << kind << " with incorrect length " << length << "\n";
     }
 }
 
@@ -1030,10 +1030,10 @@ TCPSegment TCPConnection::writeHeaderOptions(TCPSegment *tcpseg)
     {
         uint options_len = 0;
         for (uint i=0; i<tcpseg->getOptionsArraySize(); i++)
-            {options_len = options_len + tcpseg->getOptions(i).getLength();}
+            options_len = options_len + tcpseg->getOptions(i).getLength();
 
         if (options_len <= 40) // Options length allowed? - maximum: 40 Bytes
-            {tcpseg->setHeaderLength(TCP_HEADER_OCTETS+options_len);} // TCP_HEADER_OCTETS = 20
+            tcpseg->setHeaderLength(TCP_HEADER_OCTETS+options_len); // TCP_HEADER_OCTETS = 20
         else
         {
             tcpseg->setHeaderLength(TCP_HEADER_OCTETS); // TCP_HEADER_OCTETS = 20
@@ -1060,13 +1060,13 @@ TCPSegment TCPConnection::addSacks(TCPSegment *tcpseg)
 
     n = receiveQueue->getQueueLength();
     if (state->snd_dsack)
-        {n++;}
+        n++;
 
     // 2 padding bytes are prefixed
     if (tcpseg->getOptionsArraySize()>0)
     {
         for (uint i=0; i<tcpseg->getOptionsArraySize(); i++)
-            {used_options_len = used_options_len + tcpseg->getOptions(i).getLength();}
+            used_options_len = used_options_len + tcpseg->getOptions(i).getLength();
         if (used_options_len>30)
         {
             tcpEV << "ERROR: Failed to addSacks - at least 10 free bytes needed for SACK - used_options_len=" << used_options_len << "\n";
@@ -1092,7 +1092,7 @@ TCPSegment TCPConnection::addSacks(TCPSegment *tcpseg)
 
     // before adding a new sack move old sacks by one to the right
     for (int a=(MAX_SACK_BLOCKS-1); a>=0; a--) // MAX_SACK_BLOCKS is set to 60
-        {state->sacks_array[a+1] = state->sacks_array[a];}
+        state->sacks_array[a+1] = state->sacks_array[a];
 
     if (state->snd_dsack) // SequenceNo < rcv_nxt
     {
@@ -1102,7 +1102,7 @@ TCPSegment TCPConnection::addSacks(TCPSegment *tcpseg)
         // the D-SACK block specifies the sequence number immediately following
         // the last sequence in the duplicate contiguous sequence."
         if (seqLess(start, state->rcv_nxt) && seqLess(state->rcv_nxt, end))
-            {end = state->rcv_nxt;}
+            end = state->rcv_nxt;
     }
     else if (start==0 && end==0) // rcv_nxt_old != rcv_nxt
     {
@@ -1147,7 +1147,7 @@ TCPSegment TCPConnection::addSacks(TCPSegment *tcpseg)
         {
             skip_sacks_array = true;
             for (int a=(MAX_SACK_BLOCKS-1); a>=1; a--) // MAX_SACK_BLOCKS is set to 60
-                {state->sacks_array[a+1] = state->sacks_array[a];}
+                state->sacks_array[a+1] = state->sacks_array[a];
             state->sacks_array[1].setStart(start_new); // specifies larger block of data
             state->sacks_array[1].setEnd(end_new);     // specifies larger block of data
         }
@@ -1166,10 +1166,10 @@ TCPSegment TCPConnection::addSacks(TCPSegment *tcpseg)
         bool matched = false;
 
         if (a==0 && skip_sacks_array)
-            {a=1;}
+            a = 1;
 
         if (state->sacks_array[a+i].getStart() == 0)
-            {break;}
+            break;
 
         while ((state->sacks_array[a].getStart() == state->sacks_array[a+i].getStart() ||
                 state->sacks_array[a].getEnd() == state->sacks_array[a+i].getStart() ||
@@ -1180,7 +1180,7 @@ TCPSegment TCPConnection::addSacks(TCPSegment *tcpseg)
             i++;
         }
         if (matched)
-            {state->sacks_array[a+1] = state->sacks_array[a+i];}
+            state->sacks_array[a+1] = state->sacks_array[a+i];
     }
 
     option.setKind(5); // SACK
@@ -1208,7 +1208,7 @@ TCPSegment TCPConnection::addSacks(TCPSegment *tcpseg)
         // update number of sent sacks
         state->snd_sacks = state->snd_sacks+n;
         if (sndSacksVector)
-            {sndSacksVector->record(state->snd_sacks);}
+            sndSacksVector->record(state->snd_sacks);
 
         uint counter = 0;
         tcpEV << n << " SACK(s) added to header: rcv_nxt=" << state->rcv_nxt << "\n";
@@ -1219,12 +1219,12 @@ TCPSegment TCPConnection::addSacks(TCPSegment *tcpseg)
             t++;
             tcpEV << ".." << option.getValues(t) << ")";
             if (t==1 && state->snd_dsack)
-                {tcpEV << " (D-SACK)";}
+                tcpEV << " (D-SACK)";
             tcpEV << "\n";
         }
     }
     else
-        {tcpEV << "ERROR: Option length exceeded! Segment will be sent without SACK(s)" << "\n";}
+        tcpEV << "ERROR: Option length exceeded! Segment will be sent without SACK(s)" << "\n";
 
     // RFC 2883, page 3:
     // "(1) A D-SACK block is only used to report a duplicate contiguous
@@ -1239,7 +1239,7 @@ TCPSegment TCPConnection::addSacks(TCPSegment *tcpseg)
     if (state->snd_dsack)
     {
         for (int a=1; a<MAX_SACK_BLOCKS; a++) // MAX_SACK_BLOCKS is set to 60
-            {state->sacks_array[a-1] = state->sacks_array[a];}
+            state->sacks_array[a-1] = state->sacks_array[a];
 
         // delete/reset last sack to avoid duplicates
         state->sacks_array[MAX_SACK_BLOCKS-1].setStart(0);
@@ -1256,9 +1256,9 @@ TCPSegment TCPConnection::addSacks(TCPSegment *tcpseg)
             state->sacks_array[a].setEnd(0);
         }
         if (state->sacks_array[a].getStart()!=0 && state->sacks_array[a].getEnd()!=0) // do not print empty entries
-            {tcpEV << (a+1) << ". sack in sacks_array:" << " [" << state->sacks_array[a].getStart() << ".." << state->sacks_array[a].getEnd() << ")\n";}
+            tcpEV << (a+1) << ". sack in sacks_array:" << " [" << state->sacks_array[a].getStart() << ".." << state->sacks_array[a].getEnd() << ")\n";
         else
-            {break;}
+            break;
     }
 
     // reset flags:
@@ -1279,7 +1279,7 @@ void TCPConnection::updateRcvQueueVars()
 
     // update receive queue related statistics
     if (tcpRcvQueueBytesVector)
-        {tcpRcvQueueBytesVector->record(state->usedRcvBuffer);}
+        tcpRcvQueueBytesVector->record(state->usedRcvBuffer);
 
     tcpEV << "receiveQ: receiveQLength=" << receiveQueue->getQueueLength() << " maxRcvBuffer=" << state->maxRcvBuffer << " usedRcvBuffer=" << state->usedRcvBuffer << " freeRcvBuffer=" << state->freeRcvBuffer << "\n";
 }
@@ -1296,14 +1296,15 @@ void TCPConnection::updateRcvWnd()
     // Following lines are based on [Stevens, W.R.: TCP/IP Illustrated, Volume 2, pages 878-879]:
     // Don't advertise less than one full-sized segment to avoid SWS
     if (win < (state->maxRcvBuffer / 4) && win < state->snd_mss)
-        {win = 0;}
-    // Oberserve upper limit for advertised window on this connection
+        win = 0;
+
+    // Observe upper limit for advertised window on this connection
     if (win > state->maxRcvBuffer) // TODO maxRcvBuffer should be replaced by TCP_MAXWIN
-        {win = state->maxRcvBuffer;}
+        win = state->maxRcvBuffer;
     /***    // Do not shrink window
      // (rcv_adv minus rcv_nxt) is the amount of space still available to the sender that was previously advertised
      if (win < state->rcv_adv - state->rcv_nxt)
-     {win = state->rcv_adv - state->rcv_nxt;}
+         win = state->rcv_adv - state->rcv_nxt;
      ***/// TODO commented out because state variable rcv_adv is currently missing
 
     state->rcv_wnd = win;
@@ -1323,6 +1324,6 @@ void TCPConnection::updateWndInfo(TCPSegment *tcpseg)
         state->snd_wl1 = tcpseg->getSequenceNo();
         state->snd_wl2 = tcpseg->getAckNo();
         if (sndWndVector)
-            {sndWndVector->record(state->snd_wnd);}
+            sndWndVector->record(state->snd_wnd);
     }
 }
