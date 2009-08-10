@@ -23,7 +23,7 @@
 #include "TCPSegment.h"
 #include "TCPCommand_m.h"
 #include "TCPSendQueue.h"
-#include "TCPRexmitQueue.h"
+#include "TCPSACKRexmitQueue.h"
 #include "TCPReceiveQueue.h"
 #include "TCPAlgorithm.h"
 

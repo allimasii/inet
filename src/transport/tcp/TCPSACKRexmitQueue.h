@@ -15,8 +15,8 @@
 // along with this program; if not, see <http://www.gnu.org/licenses/>.
 //
 
-#ifndef __INET_TCPREXMITQUEUE_H
-#define __INET_TCPREXMITQUEUE_H
+#ifndef __INET_TCPSACKREXMITQUEUE_H
+#define __INET_TCPSACKREXMITQUEUE_H
 
 #include <omnetpp.h>
 #include "TCPConnection.h"
@@ -24,24 +24,36 @@
 
 
 /**
- * Abstract base class for TCP rexmit queues.
- * This class is based on TCPSendQueue and will only be used if sack_enabled is set to TRUE.
+ * Retransmission data for SACK.
  */
-class INET_API TCPRexmitQueue : public cPolymorphic
+class INET_API TCPSACKRexmitQueue
 {
-  protected:
+  public:
     TCPConnection *conn; // the connection that owns this queue
+
+    struct Region
+    {
+        uint32 beginSeqNum;
+        uint32 endSeqNum;
+        bool sacked;      // indicates whether region has already been sacked by data receiver
+        bool rexmitted;   // indicates whether region has already been retransmitted by data sender
+    };
+    typedef std::list<Region> RexmitQueue;
+    RexmitQueue rexmitQueue;
+
+    uint32 begin;  // 1st sequence number stored
+    uint32 end;    // last sequence number stored +1
 
   public:
     /**
-     * Ctor.
+     * Ctor
      */
-    TCPRexmitQueue()  {conn=NULL;}
+    TCPSACKRexmitQueue();
 
     /**
      * Virtual dtor.
      */
-    virtual ~TCPRexmitQueue() {}
+    virtual ~TCPSACKRexmitQueue();
 
     /**
      * Set the connection that owns this queue.
@@ -56,24 +68,24 @@ class INET_API TCPRexmitQueue : public cPolymorphic
      * init() may be called more than once; every call flushes the existing contents
      * of the queue.
      */
-    virtual void init(uint32 seqNum) = 0;
+    virtual void init(uint32 seqNum);
 
     /**
      * Returns the sequence number of the last byte stored in the buffer plus one.
      * (The first byte of the next send operation would get this sequence number.)
      */
-    virtual uint32 getBufferEndSeq() = 0;
+    virtual uint32 getBufferEndSeq();
 
     /**
      * Tells the queue that bytes up to (but NOT including) seqNum have been
      * transmitted and ACKed, so they can be removed from the queue.
      */
-    virtual void discardUpTo(uint32 seqNum) = 0;
+    virtual void discardUpTo(uint32 seqNum);
 
     /**
      * Inserts sent data to the rexmit queue.
      */
-    virtual void enqueueSentData(uint32 fromSeqNum, uint32 toSeqNum) = 0;
+    virtual void enqueueSentData(uint32 fromSeqNum, uint32 toSeqNum);
 
     /**
      * Called when data sender received selective acknowledgments.
@@ -81,47 +93,47 @@ class INET_API TCPRexmitQueue : public cPolymorphic
      * so they can be skipped if retransmitting segments as long as
      * REXMIT timer did not expired.
      */
-    virtual void setSackedBit(uint32 fromSeqNum, uint32 toSeqNum) = 0;
+    virtual void setSackedBit(uint32 fromSeqNum, uint32 toSeqNum);
 
     /**
      * Returns the number of blocks currently buffered in queue.
      */
-    virtual uint32 getQueueLength() = 0;
+    virtual uint32 getQueueLength();
 
     /**
      * Returns the number of rexmitted regions and lists them in tcpEV.
      */
-    virtual uint32 getNumRexmittedRegions() = 0;
+    virtual uint32 getNumRexmittedRegions();
 
     /**
      * Returns the highest sequence number sacked by data receiver.
      */
-    virtual uint32 getHighestSackedSeqNum() = 0;
+    virtual uint32 getHighestSackedSeqNum();
 
     /**
      * Returns the number of gaps seen by sender
      * (up to highest sacked sequence number).
      */
-    virtual uint32 getNumSndGaps(uint32 toSeqNum) = 0;
+    virtual uint32 getNumSndGaps(uint32 toSeqNum);
 
     /**
      * Checks rexmit queue for sacked of rexmitted segments and returns a certain offset
      * (contiguous sacked or rexmitted region) to forward snd->nxt.
      * It is called before retransmitting data.
      */
-    virtual uint32 checkRexmitQueueForSackedOrRexmittedSegments(uint32 fromSeqNum) = 0;
+    virtual uint32 checkRexmitQueueForSackedOrRexmittedSegments(uint32 fromSeq);
 
     /**
      * Called when REXMIT timer expired.
      * Resets sacked bit of all segments in rexmit queue.
      */
-    virtual void resetSackedBit() = 0;
+    virtual void resetSackedBit();
 
     /**
      * Called when REXMIT timer expired.
      * Resets rexmitted bit of all segments in rexmit queue.
      */
-    virtual void resetRexmittedBit() = 0;
+    virtual void resetRexmittedBit();
 };
 
 #endif

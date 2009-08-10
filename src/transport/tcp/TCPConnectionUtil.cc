@@ -26,7 +26,7 @@
 #include "IPControlInfo.h"
 #include "IPv6ControlInfo.h"
 #include "TCPSendQueue.h"
-#include "TCPRexmitQueue.h"
+#include "TCPSACKRexmitQueue.h"
 #include "TCPReceiveQueue.h"
 #include "TCPAlgorithm.h"
 
@@ -285,7 +285,7 @@ void TCPConnection::sendToApp(cMessage *msg)
 
 void TCPConnection::initConnection(TCPOpenCommand *openCmd)
 {
-    // create send
+    // create send queue
     const char *sendQueueClass = openCmd->getSendQueueClass();
     if (!sendQueueClass || !sendQueueClass[0])
         sendQueueClass = tcpMain->par("sendQueueClass");
@@ -299,11 +299,8 @@ void TCPConnection::initConnection(TCPOpenCommand *openCmd)
     receiveQueue = check_and_cast<TCPReceiveQueue *>(createOne(receiveQueueClass));
     receiveQueue->setConnection(this);
 
-    // create rexmit queue
-    const char *rexmitQueueClass = openCmd->getRexmitQueueClass();
-    if (!rexmitQueueClass || !rexmitQueueClass[0])
-        rexmitQueueClass = tcpMain->par("rexmitQueueClass");
-    rexmitQueue = check_and_cast<TCPRexmitQueue *>(createOne(rexmitQueueClass));
+    // create SACK retransmit queue
+    rexmitQueue = new TCPSACKRexmitQueue();
     rexmitQueue->setConnection(this);
 
     // create algorithm

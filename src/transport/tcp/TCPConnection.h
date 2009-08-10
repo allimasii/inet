@@ -29,7 +29,7 @@ class TCPSegment;
 class TCPCommand;
 class TCPOpenCommand;
 class TCPSendQueue;
-class TCPRexmitQueue;
+class TCPSACKRexmitQueue;
 class TCPReceiveQueue;
 class TCPAlgorithm;
 
@@ -319,7 +319,7 @@ class INET_API TCPConnection
     TCPSendQueue *sendQueue;
     TCPReceiveQueue *receiveQueue;
  public:
-    TCPRexmitQueue *rexmitQueue;
+    TCPSACKRexmitQueue *rexmitQueue;
 
  protected:
     // TCP behavior in data transfer state
@@ -548,7 +548,7 @@ class INET_API TCPConnection
     int getFsmState() const {return fsm.getState();}
     TCPStateVariables *getState() {return state;}
     TCPSendQueue *getSendQueue() {return sendQueue;}
-    TCPRexmitQueue *getRexmitQueue() {return rexmitQueue;}
+    TCPSACKRexmitQueue *getRexmitQueue() {return rexmitQueue;}
     TCPReceiveQueue *getReceiveQueue() {return receiveQueue;}
     TCPAlgorithm *getTcpAlgorithm() {return tcpAlgorithm;}
     TCP *getTcpMain() {return tcpMain;}

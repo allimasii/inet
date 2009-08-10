@@ -16,40 +16,41 @@
 //
 
 
-#include "TCPVirtualDataRexmitQueue.h"
+#include "TCPSACKRexmitQueue.h"
 
-Register_Class(TCPVirtualDataRexmitQueue);
+Register_Class(TCPSACKRexmitQueue);
 
-TCPVirtualDataRexmitQueue::TCPVirtualDataRexmitQueue() : TCPRexmitQueue()
+TCPSACKRexmitQueue::TCPSACKRexmitQueue()
 {
+    conn = NULL;
     begin = end = 0;
 }
 
-TCPVirtualDataRexmitQueue::~TCPVirtualDataRexmitQueue()
+TCPSACKRexmitQueue::~TCPSACKRexmitQueue()
 {
     while (!rexmitQueue.empty())
-        {rexmitQueue.pop_front();} // TODO rexmit warnings (delete operator) are still present
+        rexmitQueue.pop_front(); // TODO rexmit warnings (delete operator) are still present
 }
 
-void TCPVirtualDataRexmitQueue::init(uint32 seqNum)
+void TCPSACKRexmitQueue::init(uint32 seqNum)
 {
     begin = seqNum;
     end = seqNum;
 }
 
-std::string TCPVirtualDataRexmitQueue::info() const
+std::string TCPSACKRexmitQueue::info() const
 {
     std::stringstream out;
     out << "[" << begin << ".." << end << ")";
     return out.str();
 }
 
-uint32 TCPVirtualDataRexmitQueue::getBufferEndSeq()
+uint32 TCPSACKRexmitQueue::getBufferEndSeq()
 {
     return end;
 }
 
-void TCPVirtualDataRexmitQueue::discardUpTo(uint32 seqNum)
+void TCPSACKRexmitQueue::discardUpTo(uint32 seqNum)
 {
     if (rexmitQueue.empty())
         {return;}
@@ -78,7 +79,7 @@ void TCPVirtualDataRexmitQueue::discardUpTo(uint32 seqNum)
     }
 }
 
-void TCPVirtualDataRexmitQueue::enqueueSentData(uint32 fromSeqNum, uint32 toSeqNum)
+void TCPSACKRexmitQueue::enqueueSentData(uint32 fromSeqNum, uint32 toSeqNum)
 {
     bool found = false;
 
@@ -122,7 +123,7 @@ void TCPVirtualDataRexmitQueue::enqueueSentData(uint32 fromSeqNum, uint32 toSeqN
     tcpEV << "rexmitQ: rexmitQLength=" << getQueueLength() << "\n";
 }
 
-void TCPVirtualDataRexmitQueue::setSackedBit(uint32 fromSeqNum, uint32 toSeqNum)
+void TCPSACKRexmitQueue::setSackedBit(uint32 fromSeqNum, uint32 toSeqNum)
 {
     bool found = false;
 
@@ -144,12 +145,12 @@ void TCPVirtualDataRexmitQueue::setSackedBit(uint32 fromSeqNum, uint32 toSeqNum)
         {tcpEV << "FAILED to set sacked bit for region: [" << fromSeqNum << ".." << toSeqNum << "). Not found in retransmission queue.\n";}
 }
 
-uint32 TCPVirtualDataRexmitQueue::getQueueLength()
+uint32 TCPSACKRexmitQueue::getQueueLength()
 {
     return rexmitQueue.size();
 }
 
-uint32 TCPVirtualDataRexmitQueue::getNumRexmittedRegions()
+uint32 TCPSACKRexmitQueue::getNumRexmittedRegions()
 {
     uint32 counter = 0;
 
@@ -166,7 +167,7 @@ uint32 TCPVirtualDataRexmitQueue::getNumRexmittedRegions()
     return counter;
 }
 
-uint32 TCPVirtualDataRexmitQueue::getHighestSackedSeqNum()
+uint32 TCPSACKRexmitQueue::getHighestSackedSeqNum()
 {
     uint32 tmp_highest_sacked = 0;
 
@@ -180,7 +181,7 @@ uint32 TCPVirtualDataRexmitQueue::getHighestSackedSeqNum()
     return tmp_highest_sacked;
 }
 
-uint32 TCPVirtualDataRexmitQueue::getNumSndGaps(uint32 toSeqNum)
+uint32 TCPSACKRexmitQueue::getNumSndGaps(uint32 toSeqNum)
 {
     uint32 counter = 0;
 
@@ -199,7 +200,7 @@ uint32 TCPVirtualDataRexmitQueue::getNumSndGaps(uint32 toSeqNum)
     return counter;
 }
 
-uint32 TCPVirtualDataRexmitQueue::checkRexmitQueueForSackedOrRexmittedSegments(uint32 fromSeqNum)
+uint32 TCPSACKRexmitQueue::checkRexmitQueueForSackedOrRexmittedSegments(uint32 fromSeqNum)
 {
     uint32 counter = 0;
 
@@ -235,7 +236,7 @@ uint32 TCPVirtualDataRexmitQueue::checkRexmitQueueForSackedOrRexmittedSegments(u
     return counter;
 }
 
-void TCPVirtualDataRexmitQueue::resetSackedBit()
+void TCPSACKRexmitQueue::resetSackedBit()
 {
     RexmitQueue::iterator i = rexmitQueue.begin();
     while (i!=rexmitQueue.end())
@@ -245,7 +246,7 @@ void TCPVirtualDataRexmitQueue::resetSackedBit()
     }
 }
 
-void TCPVirtualDataRexmitQueue::resetRexmittedBit()
+void TCPSACKRexmitQueue::resetRexmittedBit()
 {
     RexmitQueue::iterator i = rexmitQueue.begin();
     while (i!=rexmitQueue.end())

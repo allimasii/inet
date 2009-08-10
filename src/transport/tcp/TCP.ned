@@ -225,7 +225,6 @@ simple TCP
         bool sackSupport = default(false); // selective acknowledgment (header option) enabled/disabled
         string tcpAlgorithmClass = default("TCPReno"); // TCPTahoe/TCPReno/TCPNoCongestionControl/DumbTCP
         string sendQueueClass = default("TCPVirtualDataSendQueue"); // TCPVirtualDataSendQueue/TCPMsgBasedSendQueue
-        string rexmitQueueClass = default("TCPVirtualDataRexmitQueue"); // TCPVirtualDataRexmitQueue
         string receiveQueueClass = default("TCPVirtualDataRcvQueue"); // TCPVirtualDataRcvQueue/TCPMsgBasedRcvQueue
         bool recordStats = default(true); // recording seqNum etc. into output vectors on/off
         @display("i=block/wheelbarrow");
