@@ -154,21 +154,9 @@ class INET_API TCPStateVariables : public cPolymorphic
     bool active;         // set if the connection was initiated by an active open
     bool fork;           // if passive and in LISTEN: whether to fork on an incoming connection
 
-    uint32 snd_mss;      // sender maximum segment size (without headers, i.e. only segment text)
-// RFC 2581, page 1:
-// "The SMSS is the size of the largest segment that the sender can transmit.
-// This value can be based on the maximum transmission unit of the network,
-// the path MTU discovery [MD90] algorithm, RMSS (see next item), or other
-// factors.  The size does not include the TCP/IP headers and options."
-//
-// "The RMSS is the size of the largest segment the receiver is willing to accept.
-// This is the value specified in the MSS option sent by the receiver during
-// connection startup.  Or, if the MSS option is not used, 536 bytes [Bra89].
-// The size does not include the TCP/IP headers and options."
-//
-//
-// The value of snd_mss (SMSS) is set to the minimum of snd_mss (local parameter) and
-// the value specified in the MSS option received during connection startup.
+    uint32 snd_mss;      // sender maximum segment size (without headers, i.e. only segment text); see RFC 2581, page 1.
+                         // This will be set to the minimum of the local smss parameter and the value specified in the
+                         // MSS option received during connection setup.
 
     // send sequence number variables (see RFC 793, "3.2. Terminology")
     uint32 snd_una;      // send unacknowledged
@@ -206,13 +194,13 @@ class INET_API TCPStateVariables : public cPolymorphic
     bool delayed_acks_enabled;  // set if delayed ACKs are enabled
     uint32 full_sized_segment_counter;// this counter is needed for delayed ACKs
     bool ack_now;               // send ACK immediately, needed if delayed_acks_enabled is set
-    // Based on [Stevens, W.R.: TCP/IP Illustrated, Volume 2, page 861].
-    // ack_now should be set when:
-        // - delayed ACK timer expires
-        // - an out-of-order segment is received
-        // - SYN is received during the three-way handshake
-        // - a persist probe is received
-        // - FIN is received
+                                // Based on [Stevens, W.R.: TCP/IP Illustrated, Volume 2, page 861].
+                                // ack_now should be set when:
+                                //   - delayed ACK timer expires
+                                //   - an out-of-order segment is received
+                                //   - SYN is received during the three-way handshake
+                                //   - a persist probe is received
+                                //   - FIN is received
 
     bool recovery_after_rto; // set after RTO, reset when snd_nxt == snd_max or snd_una == snd_max
 

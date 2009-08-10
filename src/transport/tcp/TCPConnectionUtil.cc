@@ -759,7 +759,7 @@ void TCPConnection::readHeaderOptions(TCPSegment *tcpseg)
 
         switch(kind)
         {
-            case 0: // EOL
+            case TCPOPTION_END_OF_OPTION_LIST: // EOL=0
             {
                 if (length == 1)
                 {
@@ -768,7 +768,7 @@ void TCPConnection::readHeaderOptions(TCPSegment *tcpseg)
                 }
                 break;
             }
-            case 1: // NOP
+            case TCPOPTION_NO_OPERATION: // NOP=1
             {
                 if (length == 1)
                 {
@@ -777,7 +777,7 @@ void TCPConnection::readHeaderOptions(TCPSegment *tcpseg)
                 }
                 break;
             }
-            case 2: // MSS
+            case TCPOPTION_MAXIMUM_SEGMENT_SIZE: // MSS=2
             {
                 if (length == 4)
                 {
@@ -813,7 +813,7 @@ void TCPConnection::readHeaderOptions(TCPSegment *tcpseg)
                 }
                 break;
             }
-            case 4: // SACK_PERMITTED
+            case TCPOPTION_SACK_PERMITTED: // SACK_PERMITTED=4
             {
                 if (length == 2)
                 {
@@ -829,7 +829,7 @@ void TCPConnection::readHeaderOptions(TCPSegment *tcpseg)
                 }
                 break;
             }
-            case 5: // SACK
+            case TCPOPTION_SACK: // SACK=5
             {
                 if (length%8 == 2)
                 {
@@ -930,6 +930,8 @@ void TCPConnection::readHeaderOptions(TCPSegment *tcpseg)
 
             // TODO add new TCPOptions here once they are implemented
 
+            // TODO delegate to TCPAlgorithm as well -- it may want to recognized additional options
+
             default:
             {
                 lengthMatched = true;
@@ -953,7 +955,7 @@ TCPSegment TCPConnection::writeHeaderOptions(TCPSegment *tcpseg)
         // MSS header option
         if (state->snd_mss > 0)
         {
-            option.setKind(2);
+            option.setKind(TCPOPTION_MAXIMUM_SEGMENT_SIZE); // MSS
             option.setLength(4);
             option.setValuesArraySize(1);
 
@@ -969,7 +971,7 @@ TCPSegment TCPConnection::writeHeaderOptions(TCPSegment *tcpseg)
         if (state->sack_support) // Is SACK supported by host?
         {
             // 2 padding bytes
-            option.setKind(1); // NOP
+            option.setKind(TCPOPTION_NO_OPERATION); // NOP
             option.setLength(1);
             option.setValuesArraySize(0);
             tcpseg->setOptionsArraySize(tcpseg->getOptionsArraySize()+2);
@@ -978,7 +980,7 @@ TCPSegment TCPConnection::writeHeaderOptions(TCPSegment *tcpseg)
             tcpseg->setOptions(t,option);
             t++;
 
-            option.setKind(4);
+            option.setKind(TCPOPTION_SACK_PERMITTED);
             option.setLength(2);
             option.setValuesArraySize(0);
 
@@ -1010,7 +1012,7 @@ TCPSegment TCPConnection::writeHeaderOptions(TCPSegment *tcpseg)
         if (state->sack_enabled && (state->snd_sack || state->snd_dsack))
         {
             // 2 padding bytes
-            option.setKind(1); // NOP
+            option.setKind(TCPOPTION_NO_OPERATION); // NOP
             option.setLength(1);
             option.setValuesArraySize(0);
             tcpseg->setOptionsArraySize(tcpseg->getOptionsArraySize()+2);
@@ -1024,6 +1026,8 @@ TCPSegment TCPConnection::writeHeaderOptions(TCPSegment *tcpseg)
         }
 
         // TODO add new TCPOptions here once they are implemented
+
+        // TODO delegate to TCPAlgorithm as well -- it may want to append additional options
     }
 
     if (tcpseg->getOptionsArraySize() != 0)
@@ -1183,7 +1187,7 @@ TCPSegment TCPConnection::addSacks(TCPSegment *tcpseg)
             state->sacks_array[a+1] = state->sacks_array[a+i];
     }
 
-    option.setKind(5); // SACK
+    option.setKind(TCPOPTION_SACK);
     option.setLength(8*n+2);
     option.setValuesArraySize(2*n);
 

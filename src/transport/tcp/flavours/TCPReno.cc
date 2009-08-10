@@ -31,15 +31,15 @@ TCPReno::TCPReno() : TCPTahoeRenoFamily(),
 
 void TCPReno::recalculateSlowStartThreshold()
 {
-// RFC 2581, page 4:
-// "When a TCP sender detects segment loss using the retransmission
-// timer, the value of ssthresh MUST be set to no more than the value
-// given in equation 3:
-//
-//   ssthresh = max (FlightSize / 2, 2*SMSS)            (3)
-//
-// As discussed above, FlightSize is the amount of outstanding data in
-// the network."
+    // RFC 2581, page 4:
+    // "When a TCP sender detects segment loss using the retransmission
+    // timer, the value of ssthresh MUST be set to no more than the value
+    // given in equation 3:
+    //
+    //   ssthresh = max (FlightSize / 2, 2*SMSS)            (3)
+    //
+    // As discussed above, FlightSize is the amount of outstanding data in
+    // the network."
 
     // set ssthresh to flight size/2, but at least 2 SMSS
     // (the formula below practically amounts to ssthresh=cwnd/2 most of the time)
@@ -54,16 +54,6 @@ void TCPReno::processRexmitTimer(TCPEventCode& event)
     if (event==TCP_E_ABORT)
         return;
 
-    // begin Slow Start (RFC2001)
-    recalculateSlowStartThreshold();
-    state->snd_cwnd = state->snd_mss;
-    if (cwndVector) cwndVector->record(state->snd_cwnd);
-    tcpEV << "Begin Slow Start: resetting cwnd to " << state->snd_cwnd
-          << ", ssthresh=" << state->ssthresh << "\n";
-
-    state->recovery_after_rto = true;
-
-    conn->retransmitOneSegment(); // FIXED 2009-08-05 by T.R.
     // After REXMIT timeout TCP Reno should start slow start with snd_cwnd = snd_mss.
     //
     // If calling "retransmitData();" there is no rexmit limitation (bytesToSend > snd_cwnd)
@@ -77,6 +67,17 @@ void TCPReno::processRexmitTimer(TCPEventCode& event)
     //      least two segments) is saved in ssthresh.  Additionally, if the
     //      congestion is indicated by a timeout, cwnd is set to one segment
     //      (i.e., slow start)."
+
+    // begin Slow Start (RFC2001)
+    recalculateSlowStartThreshold();
+    state->snd_cwnd = state->snd_mss;
+    if (cwndVector) cwndVector->record(state->snd_cwnd);
+    tcpEV << "Begin Slow Start: resetting cwnd to " << state->snd_cwnd
+          << ", ssthresh=" << state->ssthresh << "\n";
+
+    state->recovery_after_rto = true;
+
+    conn->retransmitOneSegment(); // FIXED 2009-08-05 by T.R.
 }
 
 void TCPReno::receivedDataAck(uint32 firstSeqAcked)

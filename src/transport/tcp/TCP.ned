@@ -221,8 +221,8 @@ simple TCP
         int advertisedWindow = default(14*this.mss); // in bytes, corresponds with the maximal receiver buffer capacity (Note: normally, NIC queues should be at least this size)
         bool delayedAcksEnabled = default (false); // delayed ACKs enabled/disabled
         bool nagleEnabled = default (true); // Nagle's algorithm enabled/disabled
+        bool sackSupport = default(false); // Selective Acknowledgment support (SACK will be enabled for a connection if both endpoints support it)
         int mss = default(536); // maximum segment size (header option)
-        bool sackSupport = default(false); // selective acknowledgment (header option) enabled/disabled
         string tcpAlgorithmClass = default("TCPReno"); // TCPTahoe/TCPReno/TCPNoCongestionControl/DumbTCP
         string sendQueueClass = default("TCPVirtualDataSendQueue"); // TCPVirtualDataSendQueue/TCPMsgBasedSendQueue
         string receiveQueueClass = default("TCPVirtualDataRcvQueue"); // TCPVirtualDataRcvQueue/TCPMsgBasedRcvQueue
