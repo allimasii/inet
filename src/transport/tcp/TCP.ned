@@ -1,5 +1,6 @@
 //
 // Copyright (C) 2004 Andras Varga
+//               2009 Thomas Reschka
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public License
@@ -145,22 +146,16 @@ package inet.transport.tcp;
 // Missing bits:
 //  - URG and PSH bits not handled. Receiver always acts as if PSH was set
 //    on all segments: always forwards data to the app as soon as possible.
-//  - finite receive buffer size is not modelled (always the maximum
-//    window size, currently 16K is advertised)
 //  - no RECEIVE command. Received data are always forwarded to the app as
 //    soon as possible, as if the app issued a very large RECEIVE request
 //    at the beginning. This means there's currently no flow control
 //    between TCP and the app.
-//  - no \TCP header options (e.g. MSS is currently module parameter; no SACK;
-//    no timestamp option for more frequent round-trip time measurement per
-//    rfc 2988 section 3
 //  - all timeouts are precisely calculated: timer granularity (which is caused
 //    by "slow" and "fast" i.e. 500ms and 200ms timers found in many *nix \TCP
 //    implementations) is not simulated
+//  - new ECN flags (CWR and ECE). Need to be added to header by [RFC 3168].
 //
 // TCPTahoe/TCPReno issues and missing features:
-//  - PERSIST timer not implemented (currently no problem, because receiver
-//    never advertises 0 window size)
 //  - KEEPALIVE not implemented (idle connections never time out)
 //  - Nagle's algorithm possibly not precisely implemented
 //
@@ -172,14 +167,66 @@ package inet.transport.tcp;
 // There are automated test cases (*.test files) for TCP -- see the Test
 // directory in the source distribution.
 //
+//
+// Enhancements by Thomas Reschka (2009-08-05):
+//
+//  - first TCP header options implemented (optional). Structure of TCPSegment slightly CHANGED.
+//    The use of header options increases overhead (HeaderLength and ByteLength) appropriately.
+//      - EOL: End of option list.
+//      - NOP: Padding bytes, currently needed for SACK_PERMITTED and SACK.
+//      - MSS: The value of snd_mss (SMSS) is set to the minimum of snd_mss (local parameter) and
+//             the value specified in the MSS option received during connection startup. Based on [RFC 2581, page 1].
+//      - SACK_PERMITTED: SACK can only be used if both nodes sent SACK_PERMITTED during connection startup.
+//      - SACK: RFC 2018 and RFC 2883 are implemented but SACK (RFC 3517) is not yet implemented!
+//              Added new queue (TCPRexmitQueue based on TCPSendQueue) to manage bits (sacked and rexmitted) for retransmissions.
+//              Current SACK implementation is located to TCP main (and not to flavours) therefore all existing
+//              TCP algorithm classes may be used with SACK, however only TCPReno and TCPTahoe make sense.
+//  - flow control implemented.
+//      - finite receive buffer size (initiated by parameter: advertisedWindow) implemented.
+//        If receive buffer is exhausted (by out-of-order segments) and the payload length of a
+//        new received segment is higher than free receiver buffer, new segment will be dropped,
+//        what is monitored by tcpRcvQueueDropsVector.
+//      - Update receive window. Data receiver updates all receiver queue relevant variables
+//        before sending (ACK/SACK or DATA) to advertise the currently free amount of bytes of
+//        his finite receive buffer, therefore data receiver is able to advertise a zero window.
+//        Based on [Stevens, W.R.: TCP/IP Illustrated, Volume 2, pages 878-879].
+//      - Slightly CHANGED update of window information (snd_wnd, snd_wl1, snd_wl2).
+//        Based on [Stevens, W.R.: TCP/IP Illustrated, Volume 2, page 982].
+//      - PERSIST timer implemented. If data sender receives a zero window and the REXMIT timer
+//        is not running, the PERSIST timer is started.
+//      - sending window probes. If PERSIST timer is expired a window probe is send to request a window update.
+//  - other changes:
+//      - new module parameter 'delayedAcksEnabled' added to enable/disable (optional) delayed ACKs.
+//        CHANGED implementation of delayed ACKs.
+//        Full sized segments are counted and ack_now bit is set to generate immediate ACK in certain cases.
+//        Based on [Stevens, W.R.: TCP/IP Illustrated, Volume 2, page 861].
+//      - new module parameter 'nagleEnabled' added to enable/disable (optional) Nagle's algorithm.
+//        The Nagle's algorithm is unchanged and is possibly not precisely implemented.
+//      - FIXED behavior of TCPReno after RTO. After REXMIT timeout TCP Reno should start slow start with
+//        snd_cwnd = snd_mss. If calling "retransmitData();" there is no rexmit limitation (bytesToSend > snd_cwnd)
+//        therefore "retransmitOneSegment();" needs to be used. After receiving ACK
+//        "retransmitDataAfterRto(state->snd_cwnd);" will be called to rexmit outstanding data.
+//      - Slightly CHANGED utility function "isSegmentAcceptable" (check that segment entirely falls in receive window).
+//        Based on [RFC 793, page 69].
+//      - CHANGED data type of some state variables (e.g. snd_wnd, snd_mss) from int/uint to uint32 to
+//        simplify use of standard functions (e.g. std::min).
+//      - CHANGED TCPDumb and ExtInterface to convert TCPSegments (including implemented TCP header options) from/to
+//        binary (network byte order) TCPSegments.
+//        This allows interoperability of simulation's TCP implementation with TCPs from real systems.
+//  Please also see ChangeLog.
+//
 simple TCP
 {
     parameters:
-        int mss = default(1024); // maximum segment size
-        int advertisedWindow = default(14*this.mss); // in bytes (Note: normally, NIC queues should be at least this size)
+        int advertisedWindow = default(14*this.mss); // in bytes, corresponds with the maximal receiver buffer capacity (Note: normally, NIC queues should be at least this size)
+        bool delayedAcksEnabled = default (false); // delayed ACKs enabled/disabled
+        bool nagleEnabled = default (true); // Nagle's algorithm enabled/disabled
+        int mss = default(536); // maximum segment size (header option)
+        bool sackSupport = default(false); // selective acknowledgment (header option) enabled/disabled
         string tcpAlgorithmClass = default("TCPReno"); // TCPTahoe/TCPReno/TCPNoCongestionControl/DumbTCP
-        string sendQueueClass = default("TCPMsgBasedSendQueue");    // TCPVirtualDataSendQueue/TCPMsgBasedSendQueue
-        string receiveQueueClass = default("TCPMsgBasedRcvQueue"); // TCPVirtualDataRcvQueue/TCPMsgBasedRcvQueue
+        string sendQueueClass = default("TCPVirtualDataSendQueue"); // TCPVirtualDataSendQueue/TCPMsgBasedSendQueue
+        string rexmitQueueClass = default("TCPVirtualDataRexmitQueue"); // TCPVirtualDataRexmitQueue
+        string receiveQueueClass = default("TCPVirtualDataRcvQueue"); // TCPVirtualDataRcvQueue/TCPMsgBasedRcvQueue
         bool recordStats = default(true); // recording seqNum etc. into output vectors on/off
         @display("i=block/wheelbarrow");
     gates:
@@ -190,4 +237,3 @@ simple TCP
         output ipOut;
         output ipv6Out;
 }
-

@@ -1,5 +1,6 @@
 //
 // Copyright (C) 2004-2005 Andras Varga
+//               2009 Thomas Reschka
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public License
@@ -30,9 +31,19 @@ TCPReno::TCPReno() : TCPTahoeRenoFamily(),
 
 void TCPReno::recalculateSlowStartThreshold()
 {
-    // set ssthresh to flight size/2, but at least 2 MSS
+// RFC 2581, page 4:
+// "When a TCP sender detects segment loss using the retransmission
+// timer, the value of ssthresh MUST be set to no more than the value
+// given in equation 3:
+//
+//   ssthresh = max (FlightSize / 2, 2*SMSS)            (3)
+//
+// As discussed above, FlightSize is the amount of outstanding data in
+// the network."
+
+    // set ssthresh to flight size/2, but at least 2 SMSS
     // (the formula below practically amounts to ssthresh=cwnd/2 most of the time)
-    uint flight_size = std::min(state->snd_cwnd, state->snd_wnd);
+    uint32 flight_size = std::min(state->snd_cwnd, state->snd_wnd);
     state->ssthresh = std::max(flight_size/2, 2*state->snd_mss);
     if (ssthreshVector) ssthreshVector->record(state->ssthresh);
 }
@@ -50,8 +61,22 @@ void TCPReno::processRexmitTimer(TCPEventCode& event)
     tcpEV << "Begin Slow Start: resetting cwnd to " << state->snd_cwnd
           << ", ssthresh=" << state->ssthresh << "\n";
 
-    // Reno retransmits all data (unlike Tahoe which transmits only the segment)
-    conn->retransmitData();
+    state->recovery_after_rto = true;
+
+    conn->retransmitOneSegment(); // FIXED 2009-08-05 by T.R.
+    // After REXMIT timeout TCP Reno should start slow start with snd_cwnd = snd_mss.
+    //
+    // If calling "retransmitData();" there is no rexmit limitation (bytesToSend > snd_cwnd)
+    // therefore "retransmitOneSegment();" needs to be used. After receiving ACK
+    // "retransmitDataAfterRto(state->snd_cwnd);" will be called to rexmit outstanding data.
+    //
+    // RFC 2001, page 2:
+    // "3.  When congestion occurs (indicated by a timeout or the reception
+    //      of duplicate ACKs), one-half of the current window size (the
+    //      minimum of cwnd and the receiver's advertised window, but at
+    //      least two segments) is saved in ssthresh.  Additionally, if the
+    //      congestion is indicated by a timeout, cwnd is set to one segment
+    //      (i.e., slow start)."
 }
 
 void TCPReno::receivedDataAck(uint32 firstSeqAcked)
@@ -116,8 +141,10 @@ void TCPReno::receivedDataAck(uint32 firstSeqAcked)
         }
     }
 
-    // ack and/or cwnd increase may have freed up some room in the window, try sending
-    sendData();
+    if (state->recovery_after_rto)
+        {conn->retransmitDataAfterRto(state->snd_cwnd);}
+    else
+        {sendData();}
 }
 
 void TCPReno::receivedDuplicateAck()
@@ -131,6 +158,12 @@ void TCPReno::receivedDuplicateAck()
         // Fast Retransmission: retransmit missing segment without waiting
         // for the REXMIT timer to expire
         conn->retransmitOneSegment();
+        // RFC 2581, page 5:
+        // "After the fast retransmit algorithm sends what appears to be the
+        // missing segment, the "fast recovery" algorithm governs the
+        // transmission of new data until a non-duplicate ACK arrives.
+        // (...) the TCP sender can continue to transmit new
+        // segments (although transmission must continue using a reduced cwnd)."
 
         // enter slow start
         // "set cwnd to ssthresh plus 3 times the segment size." (rfc 2001)
@@ -150,17 +183,16 @@ void TCPReno::receivedDuplicateAck()
     else if (state->dupacks > 3)
     {
         //
-        // Reno: For each additional duplicate ACK received, increment cwnd by MSS.
+        // Reno: For each additional duplicate ACK received, increment cwnd by SMSS.
         // This artificially inflates the congestion window in order to reflect the
         // additional segment that has left the network
         //
         state->snd_cwnd += state->snd_mss;
-        tcpEV << "Reno on dupAck>3: Fast Recovery: inflating cwnd by MSS, new cwnd=" << state->snd_cwnd << "\n";
+        tcpEV << "Reno on dupAck>3: Fast Recovery: inflating cwnd by SMSS, new cwnd=" << state->snd_cwnd << "\n";
         if (cwndVector) cwndVector->record(state->snd_cwnd);
 
-        // cwnd increased, try sending
-        sendData();  // 20051129 (2)
+        // sendData() changes snd_nxt (to snd_max), therefore is should not be called if recovery_after_rto is set
+        if (!state->recovery_after_rto)
+            {sendData();}
     }
 }
-
-

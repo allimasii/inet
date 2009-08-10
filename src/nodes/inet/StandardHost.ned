@@ -80,54 +80,54 @@ module StandardHost
         }
         tcpApp[numTcpApps]: <tcpAppType> like TCPApp {
             parameters:
-                @display("p=163,67");
+                @display("p=163,54");
         }
         tcp: TCP {
             parameters:
-                @display("p=163,154");
+                @display("p=163,141");
         }
         udpApp[numUdpApps]: <udpAppType> like UDPApp {
             parameters:
-                @display("p=272,67");
+                @display("p=290,54");
         }
         udp: UDP {
             parameters:
-                @display("p=272,154");
+                @display("p=290,141");
         }
         sctpApp[numSctpApps]: <sctpAppType> like SCTPApp { //I.R.
             parameters:
-                @display("p=385,85");
+                @display("p=416,54");
         }
         sctp: SCTP { //I.R.
             @display("p=382,170;i=block/wheelbarrow");
         }
         pingApp: PingApp {
             parameters:
-                @display("p=343,200");
+                @display("p=488,109");
         }
         networkLayer: NetworkLayer {
             parameters:
                 proxyARP = false;
-                @display("p=248,247;q=queue");
+                @display("p=290,230;q=queue");
             gates:
                 ifIn[sizeof(pppg)+sizeof(ethg)+numExtInterfaces]; //I.R.
                 ifOut[sizeof(pppg)+sizeof(ethg)+numExtInterfaces];
         }
         ppp[sizeof(pppg)]: PPPInterface {
             parameters:
-                @display("p=205,350,row,90;q=txQueue");
+                @display("p=163,390,row,90;q=txQueue");
         }
         eth[sizeof(ethg)]: EthernetInterface {
             parameters:
-                @display("p=240,350,row,90;q=txQueue");
+                @display("p=290,390,row,90;q=txQueue");
         }
         ext[numExtInterfaces]: ExtInterface { //I.R.
             parameters:
-                @display("p=399,390,row,90;q=txQueue;i=block/ifcard");
+                @display("p=416,390,row,90;q=txQueue;i=block/ifcard");
         }
         tcpdump: TCPDump { //I.R.
             parameters:
-                @display("p=254,310;i=abstract/cache_s");
+                @display("p=290,302;i=abstract/cache_s");
             gates:
                 ifIn[sizeof(pppg)+sizeof(ethg)+numExtInterfaces];
                 in2[sizeof(pppg)+sizeof(ethg)+numExtInterfaces];

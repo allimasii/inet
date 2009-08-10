@@ -1,0 +1,12 @@
+In this example the network consists of one client, one router and one server.
+IP addresses and routing tables are set up by using mrt files.
+
+The router is the bottleneck in this scenario, because of its limited queue
+frame capacity and the asymmetric channel settings.
+
+The client sends 100 MB of data to the server using TCP.
+
+Connections uplink and downlink throughput is measured by throughput meters.
+
+Different configurations demonstrate the impact of TCP's optional selective
+acknowledgment (SACK) option on connections throughput.

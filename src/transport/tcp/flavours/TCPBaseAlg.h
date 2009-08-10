@@ -1,5 +1,6 @@
 //
 // Copyright (C) 2004 Andras Varga
+//               2009 Thomas Reschka
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public License
@@ -32,21 +33,21 @@ class INET_API TCPBaseAlgStateVariables : public TCPStateVariables
     virtual std::string info() const;
     virtual std::string detailedInfo() const;
 
-    /// TCP features
-    //@{
-    bool delayed_acks_enabled; ///< delayed ACKs enabled/disabled; FIXME make this a socket option
-    bool nagle_enabled;        ///< Nagle's algorithm (off = NODELAY socket option)
-    //@}
-
     /// retransmit count
     //@{
     int rexmit_count;         ///< number of retransmissions (=1 after first rexmit)
     simtime_t rexmit_timeout; ///< current retransmission timeout (aka RTO)
     //@}
 
+    /// persist factor
+    //@{
+    uint persist_factor;       ///< factor needed for simplified persist timer calculation
+    simtime_t persist_timeout; ///< current persist timeout
+    //@}
+
     /// congestion window
     //@{
-    uint snd_cwnd;            ///< congestion window
+    uint32 snd_cwnd;            ///< congestion window
     //@}
 
     /// round-trip time measurements
@@ -81,7 +82,7 @@ class INET_API TCPBaseAlgStateVariables : public TCPStateVariables
  * TCPAlgorithm which uses ticks (or rather, factor out timer handling to
  * separate methods, and redefine only those).
  *
- * Congestion window is set to MSS when the connection is established,
+ * Congestion window is set to SMSS when the connection is established,
  * and not touched after that. Subclasses may redefine any of the virtual
  * functions here to add their congestion control code.
  */
@@ -175,5 +176,3 @@ class INET_API TCPBaseAlg : public TCPAlgorithm
 };
 
 #endif
-
-

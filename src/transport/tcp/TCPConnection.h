@@ -1,5 +1,6 @@
 //
 // Copyright (C) 2004 Andras Varga
+//               2009 Thomas Reschka
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public License
@@ -22,12 +23,13 @@
 #include "INETDefs.h"
 #include "IPvXAddress.h"
 #include "TCP.h"
-
+#include "TCPSegment_m.h"
 
 class TCPSegment;
 class TCPCommand;
 class TCPOpenCommand;
 class TCPSendQueue;
+class TCPRexmitQueue;
 class TCPReceiveQueue;
 class TCPAlgorithm;
 
@@ -116,7 +118,9 @@ enum TCPEventCode
 #define TCP_TIMEOUT_SYN_REXMIT_MAX 240  // 4 mins (will only be used with SYN+ACK: with SYN CONN_ESTAB occurs sooner)
 //@}
 
-#define MAX_SYN_REXMIT_COUNT     12     // will only be used with SYN+ACK: with SYN CONN_ESTAB occurs sooner
+#define MAX_SYN_REXMIT_COUNT      12    // will only be used with SYN+ACK: with SYN CONN_ESTAB occurs sooner
+
+#define MAX_SACK_BLOCKS           60    // will only be used with SACK
 
 /** @name Comparing sequence numbers */
 //@{
@@ -150,14 +154,27 @@ class INET_API TCPStateVariables : public cPolymorphic
     bool active;         // set if the connection was initiated by an active open
     bool fork;           // if passive and in LISTEN: whether to fork on an incoming connection
 
-    uint snd_mss;        // maximum segment size (without headers, i.e. only segment text)
+    uint32 snd_mss;      // sender maximum segment size (without headers, i.e. only segment text)
+// RFC 2581, page 1:
+// "The SMSS is the size of the largest segment that the sender can transmit.
+// This value can be based on the maximum transmission unit of the network,
+// the path MTU discovery [MD90] algorithm, RMSS (see next item), or other
+// factors.  The size does not include the TCP/IP headers and options."
+//
+// "The RMSS is the size of the largest segment the receiver is willing to accept.
+// This is the value specified in the MSS option sent by the receiver during
+// connection startup.  Or, if the MSS option is not used, 536 bytes [Bra89].
+// The size does not include the TCP/IP headers and options."
+//
+//
+// The value of snd_mss (SMSS) is set to the minimum of snd_mss (local parameter) and
+// the value specified in the MSS option received during connection startup.
 
     // send sequence number variables (see RFC 793, "3.2. Terminology")
     uint32 snd_una;      // send unacknowledged
     uint32 snd_nxt;      // send next (drops back on retransmission)
     uint32 snd_max;      // max seq number sent (needed because snd_nxt is re-set on retransmission)
-
-    uint snd_wnd;        // send window
+    uint32 snd_wnd;      // send window
     uint32 snd_up;       // send urgent pointer
     uint32 snd_wl1;      // segment sequence number used for last window update
     uint32 snd_wl2;      // segment ack. number used for last window update
@@ -168,10 +185,6 @@ class INET_API TCPStateVariables : public cPolymorphic
     uint32 rcv_wnd;      // receive window
     uint32 rcv_up;       // receive urgent pointer;
     uint32 irs;          // initial receive sequence number
-
-    // number of consecutive duplicate ACKs (this counter would logically
-    // belong to TCPAlgorithm, but it's a lot easier to manage here)
-    short dupacks;
 
     // SYN, SYN+ACK retransmission variables (handled separately
     // because normal rexmit belongs to TCPAlgorithm)
@@ -189,10 +202,45 @@ class INET_API TCPStateVariables : public cPolymorphic
     bool fin_rcvd;       // whether FIN received or not
     uint32 rcv_fin_seq;  // if fin_rcvd: sequence number of received FIN
 
-    //bool rcv_up_valid;
-    //uint32 rcv_buf_seq;
-    //unsigned long rcv_buff;
-    //double  rcv_buf_usage_thresh;
+    bool nagle_enabled;         // set if Nagle's algorithm is enabled
+    bool delayed_acks_enabled;  // set if delayed ACKs are enabled
+    uint32 full_sized_segment_counter;// this counter is needed for delayed ACKs
+    bool ack_now;               // send ACK immediately, needed if delayed_acks_enabled is set
+    // Based on [Stevens, W.R.: TCP/IP Illustrated, Volume 2, page 861].
+    // ack_now should be set when:
+        // - delayed ACK timer expires
+        // - an out-of-order segment is received
+        // - SYN is received during the three-way handshake
+        // - a persist probe is received
+        // - FIN is received
+
+    bool recovery_after_rto; // set after RTO, reset when snd_nxt == snd_max or snd_una == snd_max
+
+    // SACK related variables
+    bool sack_support;       // set if the host supports selective acknowledgment (header option)
+    bool sack_enabled;       // set if the connection uses selective acknowledgment (header option)
+    bool snd_sack_perm;      // set if SACK_PERMITTED has been sent
+    bool rcv_sack_perm;      // set if SACK_PERMITTED has been received
+    uint32 start_seqno;      // start sequence number of last received out-of-order segment
+    uint32 end_seqno;        // end sequence number of last received out-of-order segment
+    bool snd_sack;           // set if received vaild out-of-order segment or rcv_nxt changed, but receivedQueue is not empty
+    bool snd_dsack;          // set if received duplicated segment (sequenceNo+PLength < rcv_nxt) or (segment is not acceptable)
+    Sack sacks_array[MAX_SACK_BLOCKS]; // MAX_SACK_BLOCKS is set to 60
+
+    // those counters would logically belong to TCPAlgorithm, but it's a lot easier to manage them here
+    uint32 snd_gaps;            // current number of gaps seen by sender
+    uint32 rexmitted_gaps;      // current number of rexmitted gaps seen by sender
+    uint32 dupacks;             // current number of received consecutive duplicate ACKs
+    uint32 highest_sack;        // highest sacked sequence number by data receiver
+    uint32 snd_sacks;           // number of sent sacks
+    uint32 rcv_sacks;           // number of received sacks
+    uint32 rcv_oooseg;          // number of received out-of-order segments
+
+    // receiver buffer / receiver queue related variables
+    uint32 maxRcvBuffer;        // maximal amount of bytes in tcp receive queue
+    uint32 usedRcvBuffer;       // current amount of used bytes in tcp receive queue
+    uint32 freeRcvBuffer;       // current amount of free bytes in tcp receive queue
+    uint32 tcpRcvQueueDrops;    // number of drops in tcp receive queue
 };
 
 
@@ -270,7 +318,10 @@ class INET_API TCPConnection
     // TCP queues
     TCPSendQueue *sendQueue;
     TCPReceiveQueue *receiveQueue;
+ public:
+    TCPRexmitQueue *rexmitQueue;
 
+ protected:
     // TCP behavior in data transfer state
     TCPAlgorithm *tcpAlgorithm;
 
@@ -282,11 +333,20 @@ class INET_API TCPConnection
 
     // statistics
     cOutVector *sndWndVector;   // snd_wnd
+    cOutVector *rcvWndVector;   // rcv_wnd
     cOutVector *sndNxtVector;   // sent seqNo
     cOutVector *sndAckVector;   // sent ackNo
     cOutVector *rcvSeqVector;   // received seqNo
     cOutVector *rcvAckVector;   // received ackNo (= snd_una)
     cOutVector *unackedVector;  // number of bytes unacknowledged
+
+    cOutVector *sndGapsVector;   // current number of gaps seen by sender
+    cOutVector *dupAcksVector;   // current number of received dupAcks
+    cOutVector *sndSacksVector;  // number of sent Sacks
+    cOutVector *rcvSacksVector;  // number of received Sacks
+    cOutVector *rcvOooSegVector; // number of received out-of-order segments
+    cOutVector *tcpRcvQueueBytesVector;   // current amount of used bytes in tcp receive queue
+    cOutVector *tcpRcvQueueDropsVector;   // number of drops in tcp receive queue
 
   protected:
     /** @name FSM transitions: analysing events and executing state transitions */
@@ -342,7 +402,7 @@ class INET_API TCPConnection
     /** Utility: creates send/receive queues and tcpAlgorithm */
     virtual void initConnection(TCPOpenCommand *openCmd);
 
-    /** Utility: set snd_mss and rcv_wnd in newly created state variables block */
+    /** Utility: set snd_mss, rcv_wnd and sack in newly created state variables block */
     virtual void configureStateVariables();
 
     /** Utility: generates ISS and initializes corresponding state variables */
@@ -357,16 +417,25 @@ class INET_API TCPConnection
     /** Utility: send SYN+ACK */
     virtual void sendSynAck();
 
+    /** Utility: readHeaderOptions (Currently only EOL, NOP, MSS, SACK_PERMITTED and SACK are implemented) */
+    virtual void readHeaderOptions(TCPSegment *tcpseg);
+
+    /** Utility: writeHeaderOptions (Currently only EOL, NOP, MSS, SACK_PERMITTED and SACK are implemented) */
+    virtual TCPSegment writeHeaderOptions(TCPSegment *tcpseg);
+
+    /** Utility: adds SACKs to segments header options field */
+    virtual TCPSegment addSacks(TCPSegment *tcpseg);
+
   public:
     /** Utility: send ACK */
     virtual void sendAck();
 
     /**
-     * Utility: Send data from sendQueue, at most congestionWindow (-1 means no limit).  FIXME adjust comment!!!
-     * If fullSegmentsOnly is set, don't send segments smaller than MSS (needed for Nagle).
+     * Utility: Send data from sendQueue, at most congestionWindow.
+     * If fullSegmentsOnly is set, don't send segments smaller than SMSS (needed for Nagle).
      * Returns true if some data was actually sent.
      */
-    virtual bool sendData(bool fullSegmentsOnly, int congestionWindow=-1);
+    virtual bool sendData(bool fullSegmentsOnly, uint32 congestionWindow); /* changed from "int congestionWindow = -1" to "uint32 congestionWindow" 2009-08-05 by T.R. */
 
     /** Utility: sends 1 bytes as "probe", called by the "persist" mechanism */
     virtual bool sendProbe();
@@ -376,6 +445,9 @@ class INET_API TCPConnection
 
     /** Utility: retransmit all from snd_una to snd_max */
     virtual void retransmitData();
+
+    /** Utility: retransmit data from snd_nxt to snd_max (after RTO), limited by min(cwnd,rwnd) */
+    virtual void retransmitDataAfterRto(uint32 congestionWindow);
 
     /** Utility: sends RST */
     virtual void sendRst(uint32 seqNo);
@@ -391,7 +463,7 @@ class INET_API TCPConnection
      * Utility: sends one segment of 'bytes' bytes from snd_nxt, and advances snd_nxt.
      * sendData(), sendProbe() and retransmitData() internally all rely on this one.
      */
-    virtual void sendSegment(int bytes);
+    virtual void sendSegment(uint32 bytes);
 
     /** Utility: adds control info to segment and sends it to IP */
     virtual void sendToIP(TCPSegment *tcpseg);
@@ -439,6 +511,12 @@ class INET_API TCPConnection
     static const char *eventName(int event);
     /** Utility: returns name of TCP_I_xxx constants */
     static const char *indicationName(int code);
+    /** Utility: update receiver queue related variables and statistics - called before setting rcv_wnd */
+    virtual void updateRcvQueueVars();
+    /** Utility: update receive window (rcv_wnd) */
+    virtual void updateRcvWnd();
+    /** Utility: update window information (snd_wnd, snd_wl1, snd_wl2) */
+    virtual void updateWndInfo(TCPSegment *tcpseg);
 
   public:
     /**
@@ -465,11 +543,12 @@ class INET_API TCPConnection
      */
     virtual void segmentArrivalWhileClosed(TCPSegment *tcpseg, IPvXAddress src, IPvXAddress dest);
 
-    /* @name Various getters */
+    /** @name Various getters **/
     //@{
     int getFsmState() const {return fsm.getState();}
     TCPStateVariables *getState() {return state;}
     TCPSendQueue *getSendQueue() {return sendQueue;}
+    TCPRexmitQueue *getRexmitQueue() {return rexmitQueue;}
     TCPReceiveQueue *getReceiveQueue() {return receiveQueue;}
     TCPAlgorithm *getTcpAlgorithm() {return tcpAlgorithm;}
     TCP *getTcpMain() {return tcpMain;}

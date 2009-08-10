@@ -9,7 +9,7 @@ exec wish "$0" "$@"
 
 #--------------------------------------------------------------
 #  Copyright (C) 1992-2003 Andras Varga
-#
+#					  2009 Thomas Reschka
 #  This file is distributed WITHOUT ANY WARRANTY. See the file
 #  `license' for details on this and other legal matters.
 #--------------------------------------------------------------
@@ -37,39 +37,6 @@ foreach line {
    {"INET Framework"}
    {"About..."               "README"               "../doc/index.html"}
 
-   {"INET"}
-   {"NClients/Telnet"        "inet/nclients"        "./run"               "run"}
-   {"NClients/HTTP"          "inet/nclients" "./run basicHTTP.ini"        "run basicHTTP.ini"}
-   {"NClients/file transfer" "inet/nclients" "./run filetransfer.ini"     "run filetransfer.ini"}
-   {"FlatNet"                "inet/flatnet"         "./run"               "run"}
-   {"KIDSNw1"                "inet/kidsnw1"         "./run"               "run"}
-   {"Multicast"              "inet/multicast"       "./run"               "run"}
-   {"RouterPerf"             "inet/routerperf"      "./run"               "run"}
-   {"BulkTransfer"           "inet/bulktransfer"    "./run"               "run"}
-
-   {"SCTP"}
-   {"NClients"               "sctp/nclients" 	    "./run" 		  "run"}
-   {"Multi-homing"           "sctp/multihomed"      "./run" 		  "run"}
-
-   {"External interface"}
-   {"Traceroute"	     "sctp/traceroute"	    "./run"		  "run"}
-   {"Host with external interface"  "sctp/extclient"	    "./run"		  "run"}
-
-   {"Ad-hoc"}
-   {"Mobility models"        "adhoc/mobility"       "./run"               "run"}
-   {"802.11b ad-hoc"         "adhoc/ieee80211"      "./run"               "run"}
-   {"802.11b ad-hoc (MF impl.)" "adhoc/mf80211"     "./run"               "run"}
-
-   {"Wireless"}
-   {"802.11 AP and hosts"   "wireless/lan80211"     "./run"               "run"}
-   {"802.11 handover"       "wireless/handover"     "./run"               "run"}
-   {"802.11 thruput test"   "wireless/throughput"   "./run"               "run"}
-   {"802.11 thruput test 2" "wireless/hosttohost"   "./run"               "run"}
-
-   {"IPv6 (work in progress)"}
-   {"NClients"               "ipv6/nclients"        "./run"               "run"}
-   {"DemoNetworkEth"         "ipv6/demonetworketh"  "./run"               "run"}
-
    {"Ethernet"}
    {"ARP Test"               "ethernet/arptest"     "./run"               "run"}
    {"ARP Test 2"             "ethernet/arptest2"    "./run"               "run"}
@@ -80,6 +47,42 @@ foreach line {
    {"LANs: duplexswitch"     "ethernet/lans"        "./run duplexswitch.ini" "run duplexswitch.ini"}
    {"LANs: two hosts"        "ethernet/lans"        "./run twoHosts.ini"  "run twoHosts.ini"}
    {"LANs: very large LAN"   "ethernet/lans"        "./run largeNet.ini"  "run largeNet.ini"}
+
+   {"INET"}
+   {"NClients/Telnet"        "inet/nclients"        "./run"               "run"}
+   {"NClients/HTTP"          "inet/nclients" "./run basicHTTP.ini"        "run basicHTTP.ini"}
+   {"NClients/file transfer" "inet/nclients" "./run filetransfer.ini"     "run filetransfer.ini"}
+   {"FlatNet"                "inet/flatnet"         "./run"               "run"}
+   {"KIDSNw1"                "inet/kidsnw1"         "./run"               "run"}
+   {"Multicast"              "inet/multicast"       "./run"               "run"}
+   {"RouterPerf"             "inet/routerperf"      "./run"               "run"}
+   {"BulkTransfer"           "inet/bulktransfer"    "./run"               "run"}
+   {"Bottleneck"             "inet/bottleneck" 	    "./run"               "run"}
+   {"TcpSack"             	 "inet/tcpSack" 	    "./run"               "run"}
+
+   {"IPv6 (work in progress)"}
+   {"NClients"               "ipv6/nclients"        "./run"               "run"}
+   {"DemoNetworkEth"         "ipv6/demonetworketh"  "./run"               "run"}
+
+   {"SCTP"}
+   {"NClients"               "sctp/nclients" 	    "./run" 		  "run"}
+   {"Multi-homing"           "sctp/multihomed"      "./run" 		  "run"}
+
+   {"External interface"}
+   {"Traceroute"	   		 "extInterface/traceroute"	    "./run" 		  "run"}
+   {"ExtClient"	   		 	 "extInterface/extclient"		"./run" 		  "run"}
+   {"ExtServer"           	 "extInterface/extServer"      	"./run" 		  "run"}
+
+   {"Ad-hoc"}
+   {"Mobility models"        "adhoc/mobility"       "./run"               "run"}
+   {"802.11b ad-hoc"         "adhoc/ieee80211"      "./run"               "run"}
+   {"802.11b ad-hoc (MF impl.)" "adhoc/mf80211"     "./run"               "run"}
+
+   {"Wireless"}
+   {"802.11 AP and hosts"   "wireless/80211"     	"./run"               "run"}
+   {"802.11 handover"       "wireless/handover"     "./run"               "run"}
+   {"802.11 thruput test"   "wireless/throughput"   "./run"               "run"}
+   {"802.11 thruput test 2" "wireless/hosttohost"   "./run"               "run"}
 
    {"MPLS/RSVP-TE"}
    {"TestTE/failure"         "mpls/testte_failure"  "./run"                "run"}
@@ -425,4 +428,3 @@ checkVersion
 generic_bindings
 font_bindings
 createWindow
-
