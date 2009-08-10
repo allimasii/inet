@@ -23,7 +23,7 @@
 #include "INETDefs.h"
 #include "IPvXAddress.h"
 #include "TCP.h"
-#include "TCPSegment_m.h"
+#include "TCPSegment.h"
 
 class TCPSegment;
 class TCPCommand;

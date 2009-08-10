@@ -22,7 +22,6 @@
 #include "TCP.h"
 #include "TCPConnection.h"
 #include "TCPSegment.h"
-#include "TCPSegment_m.h"
 #include "TCPCommand_m.h"
 #include "IPControlInfo.h"
 #include "IPv6ControlInfo.h"
