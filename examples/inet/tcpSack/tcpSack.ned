@@ -1,10 +1,8 @@
-///////////////////////////////////////////////////////////////////////
-//  filename: tcpSack.ned
-//  author: Thomas Reschka
-//  network description for tcp example "tcpSack"
-///////////////////////////////////////////////////////////////////////
+//
+// Author: Thomas Reschka
+//
 
-package inet.examples.inet.tcpSack;
+package inet.examples.inet.tcpsack;
 
 import inet.nodes.inet.Router;
 import inet.nodes.inet.StandardHostWithULDropsGenerator;

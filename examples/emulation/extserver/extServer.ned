@@ -1,16 +1,15 @@
-///////////////////////////////////////////////////////////////////////
-//  filename: extServer.ned
-//  author: Thomas Reschka
-//  network description for tcp example "extServer"
-///////////////////////////////////////////////////////////////////////
+//
+// Author: Thomas Reschka
+//
 
-package inet.examples.extInterface.extServer;
+package inet.examples.emulation.extserver;
 
 import inet.nodes.inet.ExtRouter;
 import inet.nodes.inet.StandardHost;
 import ned.DatarateChannel;
 
-network extServer {
+network extServer 
+{
     @display("bgb=400,200");
     submodules:
         router1: ExtRouter {
