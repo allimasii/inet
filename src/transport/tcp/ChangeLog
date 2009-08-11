@@ -1,132 +1,105 @@
 2009-08-05 Thomas Reschka
 
-  	- first TCP header options implemented (optional). Structure of TCPSegment slightly CHANGED.
-	  The use of header options increases overhead (HeaderLength and ByteLength) appropriately.
-	  	- EOL: End of option list.
-	  	- NOP: Padding bytes, currently needed for SACK_PERMITTED and SACK.
-	 	- MSS: The value of snd_mss (SMSS) is set to the minimum of snd_mss (local parameter) and
-	  		   the value specified in the MSS option received during connection startup. Based on [RFC 2581, page 1].
-	  	- SACK_PERMITTED: SACK can only be used if both nodes sent SACK_PERMITTED during connection startup.
-	  	- SACK: RFC 2018 and RFC 2883 are implemented but SACK (RFC 3517) is not yet implemented!
-	  			Added new queue (TCPRexmitQueue based on TCPSendQueue) to manage bits (sacked and rexmitted) for retransmissions.
-    			Current SACK implementation is located to TCP main (and not to flavours) therefore all existing
-    			TCP algorithm classes may be used with SACK, however only TCPReno and TCPTahoe make sense.
-  	- flow control implemented.
-		- finite receive buffer size (initiated by parameter: advertisedWindow) implemented.
-    	  If receive buffer is exhausted (by out-of-order segments) and the payload length of a
-    	  new received segment is higher than free receiver buffer, new segment will be dropped,
-	  	  what is monitored by tcpRcvQueueDropsVector.
-		- Update receive window. Data receiver updates all receiver queue relevant variables
-    	  before sending (ACK/SACK or DATA) to advertise the currently free amount of bytes of
-    	  his finite receive buffer, therefore data receiver is able to advertise a zero window.
-    	  Based on [Stevens, W.R.: TCP/IP Illustrated, Volume 2, pages 878-879].
-		- Slightly CHANGED update of window information (snd_wnd, snd_wl1, snd_wl2).
-	  	  Based on [Stevens, W.R.: TCP/IP Illustrated, Volume 2, page 982].
-		- PERSIST timer implemented. If data sender receives a zero window and the REXMIT timer
-	  	  is not running, the PERSIST timer is started.
-		- sending window probes. If PERSIST timer is expired a window probe is send to request a window update.
-  	- other changes:
-		- new module parameter 'delayedAcksEnabled' added to enable/disable (optional) delayed ACKs.
-		  CHANGED implementation of delayed ACKs.
-		  Full sized segments are counted and ack_now bit is set to generate immediate ACK in certain cases.
-		  Based on [Stevens, W.R.: TCP/IP Illustrated, Volume 2, page 861].
-		- new module parameter 'nagleEnabled' added to enable/disable (optional) Nagle's algorithm.
-		  The Nagle's algorithm is unchanged and is possibly not precisely implemented.
-		- FIXED behavior of TCPReno after RTO. After REXMIT timeout TCP Reno should start slow start with
-		  snd_cwnd = snd_mss. If calling "retransmitData();" there is no rexmit limitation (bytesToSend > snd_cwnd)
-		  therefore "retransmitOneSegment();" needs to be used. After receiving ACK
-		  "retransmitDataAfterRto(state->snd_cwnd);" will be called to rexmit outstanding data.
-		- Slightly CHANGED utility function "isSegmentAcceptable" (check that segment entirely falls in receive window).
-		  Based on [RFC 793, page 69].
-		- CHANGED data type of some state variables (e.g. snd_wnd, snd_mss) from int/uint to uint32 to
-		  simplify use of standard functions (e.g. std::min).
-		- CHANGED TCPDumb and ExtInterface to convert TCPSegments (including implemented TCP header options) from/to
-		  binary (network byte order) TCPSegments.
-		  This allows interoperability of simulation's TCP implementation with TCPs from real systems.
-	- NEW tcp parameters:
-		bool delayedAcksEnabled = default (false); // delayed ACKs enabled/disabled
-		bool nagleEnabled = default (true); // Nagle's algorithm enabled/disabled
-		bool sackSupport = default(false); // selective acknowledgment (header option) enabled/disabled
-		string rexmitQueueClass = default("TCPVirtualDataRexmitQueue"); // TCPVirtualDataRexmitQueue
-	- NEW tcp vectors:
-		rcvWndVector = new cOutVector("receive window"); // current receive window
-		sndGapsVector = new cOutVector("snd_gaps"); // current number of gaps seen by sender
-		dupAcksVector = new cOutVector("rcvd dupAcks"); // current number of received dupAcks
-		sndSacksVector = new cOutVector("sent sacks"); // total number of sent SACK blocks
-		rcvSacksVector = new cOutVector("rcvd sacks"); // total number of received SACK blocks
-		rcvOooSegVector = new cOutVector("rcvd oooseg"); // total number of received out-of-order segments
-		tcpRcvQueueBytesVector = new cOutVector("tcpRcvQueueBytes"); // current amount of used bytes in tcp receive queue
-		tcpRcvQueueDropsVector = new cOutVector("tcpRcvQueueDrops"); // total number of drops in tcp receive queue
-	- NEW tcp examples:
-		inet/examples/inet/bottleneck
-			The router is the bottleneck in this scenario, because of its limited queue
-			frame capacity and the asymmetric channel settings.
-			The client sends 100 MB of data to the server using TCP.
-			Different configurations demonstrate the impact of TCP's optional selective
-			acknowledgment (SACK) option on connections throughput.
-		inet/examples/inet/tcpSack
-			The dropsGenerator at client's PPP interface deletes certain DATA packets.
-			On server side a second dropsGenerator deletes certain ACK packets in configs 1-5.
-			For config 6 the node type of the server must be changed to
-			'StandardHostWithDLDuplicatesGenerator' in ned file to duplicate certain
-			received DATA packets.
-			Different configurations reflect examples from RFC 2018 and RFC 2883 to evaluate
-			the implementation of TCP's optional selective acknowledgment (SACK) option.
-		inet/examples/extInterface/extServer
-			In this example the network consists of one client, one router, one internal
-			server and one external (real) server.
-			The client sends 100 MB of data to the external server using TCP for uplink traffic.
-			For downlink traffic the external server may send data to the internal server.
-	- CHANGED location of examples "extclient" and "traceroute" from "inet/examples/sctp/" to "inet/examples/extInterface/"
-	- 41 NEW files:
-		inet/examples/extInterface/extServer/ (new example including 8 files)
-		inet/examples/intet/bottleneck/ (new example including 8 files)
-		inet/examples/intet/tcpSack/ (new example including 8 files)
-		inet/src/linklayer/PPP/DropsGenerator.cc (to delete certain packets)
-		inet/src/linklayer/PPP/DropsGenerator.h (to delete certain packets)
-		inet/src/linklayer/PPP/DropsGenerator.ned (to delete certain packets)
-		inet/src/linklayer/PPP/DuplicatesGenerator.cc (to duplicate certain packets)
-		inet/src/linklayer/PPP/DuplicatesGenerator.h (to duplicate certain packets)
-		inet/src/linklayer/PPP/DuplicatesGenerator.ned (to duplicate certain packets)
-		inet/src/linklayer/PPP/PPPInterfaceWithDLDuplicatesGenerator.ned (to duplicate certain downlink packets)
-		inet/src/linklayer/PPP/PPPInterfaceWithDLThruputMeter.ned (to measure downlink throughput)
-		inet/src/linklayer/PPP/PPPInterfaceWithULDropsGenerator.ned (to delete certain uplink packets)
-		inet/src/linklayer/PPP/PPPInterfaceWithULThruputMeter.ned (to measure uplink throughput)
-		inet/src/nodes/inet/StandardHostWithDLDuplicatesGenerator.ned (to duplicate certain uplink packets)
-		inet/src/nodes/inet/StandardHostWithDLThruputMeter.ned (to measure downlink throughput)
-		inet/src/nodes/inet/StandardHostWithULDropsGenerator.ned (to delete certain uplink packets)
-		inet/src/nodes/inet/StandardHostWithULThruputMeter.ned (to measure uplink throughput)
-		inet/src/transport/tcp/queues/TCPVirtualDataRexmitQueue.cc (needed for SACK)
-		inet/src/transport/tcp/queues/TCPVirtualDataRexmitQueue.h (needed for SACK)
-		inet/src/transport/tcp/TCPRexmitQueue.h (needed for SACK)
-	- 27 CHANGED (enhanced) files:
-		inet/examples/README
-		inet/examples/rundemo
-		inet/examples/extInterface/extClient/ExtClient.ned (only package adjusted because location of example was changed)
-		inet/examples/extInterface/traceroute/Traceroute.ned (only package adjusted because location of example was changed)
-		inet/src/linklayer/ext/cSocketRTScheduler.cc (only commented out line 34 because of compilation errors in windows xp)
-		inet/src/linklayer/ext/ExtInterface.cc
-		inet/src/nodes/inet/StandardHost.ned (only graphical rearrangement of the modules)
-		inet/src/transport/contract/TCPCommand.msg
-		inet/src/transport/tcp/flavours/DumbTCP.cc
-		inet/src/transport/tcp/flavours/TCPBaseAlg.cc
-		inet/src/transport/tcp/flavours/TCPBaseAlg.h
-		inet/src/transport/tcp/flavours/TCPReno.cc
-		inet/src/transport/tcp/queues/TCPVirtualDataRcvQueue.cc
-		inet/src/transport/tcp/queues/TCPVirtualDataRcvQueue.h
-		inet/src/transport/tcp/ChangeLog
-		inet/src/transport/tcp/TCP.ned
-		inet/src/transport/tcp/TCPConnection.h
-		inet/src/transport/tcp/TCPConnectionBase.cc
-		inet/src/transport/tcp/TCPConnectionRcvSegment.cc
-		inet/src/transport/tcp/TCPConnectionUtil.cc
-		inet/src/transport/tcp/TCPReceiveQueue.h
-		inet/src/transport/tcp/TCPSegment.msg
-		inet/src/util/headerserializers/headers/tcp.h
-		inet/src/util/headerserializers/IPSerializer.cc
-		inet/src/util/headerserializers/TCPSerializer.cc
-		inet/src/util/headerserializers/TCPSerializer.h
-		inet/src/util/TCPDumb.cc
+	* implemented SACK TCP. The current SACK implementation is located
+	  in TCP main (and not in flavours). This means that all existing
+	  TCP algorithm classes may be used with SACK, although only TCPReno
+	  and TCPTahoe make sense.
+
+	* implemented some TCP header options:
+	  - EOL: End of option list.
+	  - NOP: Padding bytes, currently needed for SACK_PERMITTED and SACK.
+	  - MSS: The value of snd_mss (SMSS) is set to the minimum of snd_mss
+	    (local parameter) and the value specified in the MSS option
+	    received during connection startup. Based on [RFC 2581, page 1].
+	  - SACK_PERMITTED: SACK can only be used if both nodes sent SACK_-
+	    PERMITTED during connection startup.
+	  - SACK: RFC 2018 and RFC 2883 are implemented, but not RFC 3517.
+
+	* implemented flow control:
+	  - finite receive buffer size (initiated by parameter advertisedWindow).
+	    If receive buffer is exhausted (by out-of-order segments) and the
+	    payload length of a new received segment is higher than free receiver
+	    buffer, the new segment will be dropped. Such drops are recorded in
+	    tcpRcvQueueDropsVector.
+
+	* update receive window. The data receiver updates all receiver queue
+	  related variables before sending (ACK/SACK or DATA) to advertise
+	  the currently free amount of bytes of its finite receive buffer,
+	  thus data receiver is able to advertise a zero window.
+	  Based on [Stevens, W.R.: TCP/IP Illustrated, Volume 2, pages 878-879].
+
+	* slightly changed the update of window information (snd_wnd, snd_wl1, snd_wl2).
+	  Based on [Stevens, W.R.: TCP/IP Illustrated, Volume 2, page 982].
+
+	* implemented PERSIST timer. If data sender receives a zero window and
+	  the REXMIT timer is not running, the PERSIST timer is started.
+
+	* sending window probes. If PERSIST timer is expired a window probe is
+	  sent to request a window update.
+
+	Other changes:
+	  - new module parameter 'delayedAcksEnabled' added to enable/disable
+	    (optional) delayed ACKs.
+	  - changed the implementation of delayed ACKs. Full sized segments are
+	    counted and ack_now bit is set to generate immediate ACK in certain
+	    cases.
+	    Based on [Stevens, W.R.: TCP/IP Illustrated, Volume 2, page 861].
+	  - new module parameter 'nagleEnabled' added to enable/disable (optional)
+	    Nagle's algorithm. The Nagle's algorithm is unchanged and is possibly
+	    not precisely implemented.
+	  - FIXED behavior of TCPReno after RTO. After REXMIT timeout TCP Reno
+	    should start slow start with snd_cwnd = snd_mss. If calling
+	    "retransmitData();" there is no rexmit limitation (bytesToSend > snd_cwnd)
+	    therefore "retransmitOneSegment();" needs to be used. After receiving
+	    ACK, "retransmitDataAfterRto(state->snd_cwnd);" will be called to rexmit
+	    outstanding data.
+	  - Slightly CHANGED utility function "isSegmentAcceptable" (check
+	    that segment entirely falls in receive window).
+	    Based on [RFC 793, page 69].
+	  - CHANGED data type of some state variables (e.g. snd_wnd, snd_mss)
+	    from int/uint to uint32 to simplify use of standard functions
+	    (e.g. std::min).
+
+	Summary:
+	* NEW tcp parameters:
+	  - bool delayedAcksEnabled
+	  - bool nagleEnabled
+	  - bool sackSupport
+
+	* NEW tcp vectors:
+	  - rcvWndVector ("receive window"): current receive window
+	  - sndGapsVector ("snd_gaps"): current number of gaps seen by sender
+	  - dupAcksVector ("rcvd dupAcks"): current number of received dupAcks
+	  - sndSacksVector ("sent sacks"): total number of sent SACK blocks
+	  - rcvSacksVector ("rcvd sacks"): total number of received SACK blocks
+	  - rcvOooSegVector ("rcvd oooseg"): total number of received out-of-
+	    order segments
+	  - tcpRcvQueueBytesVector ("tcpRcvQueueBytes"): current amount of used
+	    bytes in tcp receive queue
+	  - tcpRcvQueueDropsVector ("tcpRcvQueueDrops"): total number of drops
+	    in tcp receive queue
+
+	* NEW tcp examples:
+	  - inet/examples/inet/bottleneck
+	    To demonstrate SACK's impact on throughput. The router is set up to
+	    be the bottleneck in this scenario, because of its limited queue
+	    frame capacity and the asymmetric channel settings.
+
+	  - inet/examples/inet/tcpSack
+	    The dropsGenerator at client's PPP interface deletes certain DATA
+	    packets. On server side a second dropsGenerator deletes certain
+	    ACK packets in configs 1-5. For config 6 the node type of the server
+	    must be changed to 'StandardHostWithDLDuplicatesGenerator' in ned
+	    file to duplicate certain received DATA packets.
+	    Different configurations reflect examples from RFC 2018 and RFC 2883
+	    to evaluate the implementation of optional selective acknowledgment.
+
+	  - inet/examples/extInterface/extServer
+	    In this example the network consists of one client, one router,
+	    one internal server and one external (real) server. The client sends
+	    100 MB of data to the external server using TCP for uplink traffic.
+	    For downlink traffic the external server may send data to the
+	    internal server.
 
 2008-06-29 Andras Varga
 
