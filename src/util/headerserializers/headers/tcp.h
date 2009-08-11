@@ -39,7 +39,7 @@ struct tcphdr
     unsigned short  th_sum;         /* checksum */
     unsigned short  th_urp;         /* urgent pointer */
     unsigned int    th_options[0];  /* options (optional) */
-    unsigned char   data[0];        /* data (optional) */
+    //unsigned char data[0];        XXX MSVC only allows zero-size arrays at the end of a struct
 };
 
 
@@ -55,3 +55,5 @@ typedef struct {
 #endif
 
 #endif /* netinet/tcp.h */
+
+

@@ -93,7 +93,7 @@ int TCPSerializer::serialize(TCPSegment *msg, unsigned char *buf, unsigned int b
 
                 switch(kind)
                 {
-                    case 0: // EOL
+                    case TCPOPTION_END_OF_OPTION_LIST: // EOL
                     {
                         // kind
                         if (tcp->th_options[j] == 0)
@@ -102,7 +102,7 @@ int TCPSerializer::serialize(TCPSegment *msg, unsigned char *buf, unsigned int b
                             {tcp->th_options[j] = tcp->th_options[j] + (kind<<8);}  // 1 padding byte prefixed
                         break;
                     }
-                    case 1: // NOP
+                    case TCPOPTION_NO_OPERATION: // NOP
                     {
                         // kind
                         if (tcp->th_options[j] == 0) // first NOP
@@ -111,7 +111,7 @@ int TCPSerializer::serialize(TCPSegment *msg, unsigned char *buf, unsigned int b
                             {tcp->th_options[j] = tcp->th_options[j] + (kind<<8);} // 1 padding byte prefixed
                         break;
                     }
-                    case 2: // MSS
+                    case TCPOPTION_MAXIMUM_SEGMENT_SIZE: // MSS
                     {
                         // kind
                         tcp->th_options[j] = kind;
@@ -123,7 +123,7 @@ int TCPSerializer::serialize(TCPSegment *msg, unsigned char *buf, unsigned int b
                         j++;
                         break;
                     }
-                    case 4: // SACK_PERMITTED
+                    case TCPOPTION_SACK_PERMITTED: // SACK_PERMITTED
                     {
                         // kind
                         tcp->th_options[j] = tcp->th_options[j] + (kind<<16);   // 2 padding bytes prefixed
@@ -132,7 +132,7 @@ int TCPSerializer::serialize(TCPSegment *msg, unsigned char *buf, unsigned int b
                         j++;
                         break;
                     }
-                    case 5: // SACK
+                    case TCPOPTION_SACK: // SACK
                     {
                         // kind
                         tcp->th_options[j] = tcp->th_options[j] + (kind<<16); // 2 padding bytes prefixed
@@ -164,23 +164,24 @@ int TCPSerializer::serialize(TCPSegment *msg, unsigned char *buf, unsigned int b
     } // if options present
 
     // write data
-    if (msg->getByteLength() > msg->getHeaderLength()) // data present?
+    if (msg->getByteLength() > msg->getHeaderLength()) // data present? FIXME TODO: || msg->getEncapsulatedMsg()!=NULL
     {
         unsigned int dataLength = msg->getByteLength() - msg->getHeaderLength();
 //      TCPPayloadMessage *tcpP = check_and_cast<TCPPayloadMessage* >(msg->getEncapsulatedMsg()); // FIXME
+        char *tcpData = (char *)tcp->th_options; //FIXME + length(options)!
         for (unsigned int i=0; i < dataLength; i++)
         {
             if (i < msg->getPayloadArraySize())
             {
-//              tcp->data[i] = (unsigned char) tcpP.msg; // FIXME
-                tcp->data[i] = 't'; // FIXME - write 't' as dummy data
+//              tcpData[i] = (unsigned char) tcpP.msg; // FIXME
+                tcpData[i] = 't'; // FIXME - write 't' as dummy data
             }
             else
-                {tcp->data[i] = 't';} // write 't' as dummy data
+                {tcpData[i] = 't';} // write 't' as dummy data
         }
     }
 
-    // for computation of the checksum we need the pseudo header infront of the tcp header
+    // for computation of the checksum we need the pseudo header in front of the tcp header
     int wholeheadersize = sizeof(pseudoheader) + writtenbytes;
     char *wholeheader = (char*) malloc(wholeheadersize);
 
@@ -255,7 +256,7 @@ void TCPSerializer::parse(unsigned char *buf, unsigned int bufsize, TCPSegment *
                 TCPOption tmpOption;
                 switch(kind)
                 {
-                    case 0: // EOL
+                    case TCPOPTION_END_OF_OPTION_LIST: // EOL
                     {
                         // kind
                         tmpOption.setKind(kind);
@@ -265,7 +266,7 @@ void TCPSerializer::parse(unsigned char *buf, unsigned int bufsize, TCPSegment *
                         tmpOption.setValuesArraySize(0);
                         break;
                     }
-                    case 1: // NOP
+                    case TCPOPTION_NO_OPERATION: // NOP
                     {
                         // kind
                         tmpOption.setKind(kind);
@@ -275,7 +276,7 @@ void TCPSerializer::parse(unsigned char *buf, unsigned int bufsize, TCPSegment *
                         tmpOption.setValuesArraySize(0);
                         break;
                     }
-                    case 2: // MSS
+                    case TCPOPTION_MAXIMUM_SEGMENT_SIZE: // MSS
                     {
                         // kind
                         tmpOption.setKind(kind);
@@ -289,7 +290,7 @@ void TCPSerializer::parse(unsigned char *buf, unsigned int bufsize, TCPSegment *
                             {lengthMatched = true;}
                         break;
                     }
-                    case 4: // SACK_PERMITTED
+                    case TCPOPTION_SACK_PERMITTED: // SACK_PERMITTED
                     {
                         // kind
                         tmpOption.setKind(kind);
@@ -302,7 +303,7 @@ void TCPSerializer::parse(unsigned char *buf, unsigned int bufsize, TCPSegment *
                             {lengthMatched = true;}
                         break;
                     }
-                    case 5: // SACK
+                    case TCPOPTION_SACK: // SACK
                     {
                         // kind
                         tmpOption.setKind(kind);

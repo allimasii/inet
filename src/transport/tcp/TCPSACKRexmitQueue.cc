@@ -18,7 +18,6 @@
 
 #include "TCPSACKRexmitQueue.h"
 
-Register_Class(TCPSACKRexmitQueue);
 
 TCPSACKRexmitQueue::TCPSACKRexmitQueue()
 {
@@ -38,7 +37,7 @@ void TCPSACKRexmitQueue::init(uint32 seqNum)
     end = seqNum;
 }
 
-std::string TCPSACKRexmitQueue::info() const
+std::string TCPSACKRexmitQueue::str() const
 {
     std::stringstream out;
     out << "[" << begin << ".." << end << ")";
@@ -83,7 +82,7 @@ void TCPSACKRexmitQueue::enqueueSentData(uint32 fromSeqNum, uint32 toSeqNum)
 {
     bool found = false;
 
-    tcpEV << "rexmitQ: " << info() << " enqueueSentData [" << fromSeqNum << ".." << toSeqNum << ")\n";
+    tcpEV << "rexmitQ: " << str() << " enqueueSentData [" << fromSeqNum << ".." << toSeqNum << ")\n";
 
     Region region;
     region.beginSeqNum = fromSeqNum;

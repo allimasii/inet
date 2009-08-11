@@ -134,6 +134,11 @@ class INET_API TCPSACKRexmitQueue
      * Resets rexmitted bit of all segments in rexmit queue.
      */
     virtual void resetRexmittedBit();
+
+    /**
+     * Returns a string for debug purposes.
+     */
+    virtual std::string str() const;
 };
 
 #endif
